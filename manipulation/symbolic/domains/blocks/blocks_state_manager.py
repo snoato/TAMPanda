@@ -12,6 +12,7 @@ import re
 
 from manipulation.symbolic.base_domain import BaseStateManager
 from manipulation.symbolic.domains.blocks.blocks_domain import BlocksDomain
+from manipulation.planners.grasp_planner import GraspPlanner, GraspCandidate, GRASP_CONTACT_OFFSET
 
 
 class BlocksStateManager(BaseStateManager):
@@ -50,6 +51,7 @@ class BlocksStateManager(BaseStateManager):
         self.model = env.get_model()
         self.data = env.get_data()
         self.gripper_holding = None  # Track what gripper is holding (block_idx or None)
+        self.grasp_planner = GraspPlanner(table_z=domain.table_height)
     
     def _get_block_pose(self, block_idx: int) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -412,35 +414,17 @@ class BlocksStateManager(BaseStateManager):
         self.env.reset_velocities()
         self.env.forward()
     
-    def compute_pickup_pose(self, block_idx: int) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Compute grasp pose for picking up a block.
-        
-        Returns top-center position with vertical (downward) approach.
-        
-        Args:
-            block_idx: Block index to grasp
-            
-        Returns:
-            Tuple of (position, quaternion) for end-effector
-        """
-        pos, _ = self._get_block_pose(block_idx)
-        _, _, height = self.BLOCK_SPECS[block_idx]
-        
-        # Grasp at top-center of block
-        grasp_x = pos[0]
-        grasp_y = pos[1]
-        grasp_z = pos[2] + height / 2.0 + 0.02  # Slightly above block top
-        
-        grasp_position = np.array([grasp_x, grasp_y, grasp_z])
-        
-        # Vertical downward orientation (gripper pointing down)
-        # Quaternion for -90° rotation around Y-axis: [cos(-45°), 0, sin(-45°), 0] = [0.707, 0, -0.707, 0]
-        # Actually for straight down: [0, 1, 0, 0] or [0.707, 0.707, 0, 0] depending on gripper frame
-        # Standard downward grasp orientation
-        grasp_quaternion = np.array([0.0, 1.0, 0.0, 0.0])
-        
-        return grasp_position, grasp_quaternion
+    def compute_pickup_candidates(self, block_idx: int) -> List[GraspCandidate]:
+        """Return all grasp candidates for a block, sorted best-first."""
+        pos, quat = self._get_block_pose(block_idx)
+        w, d, h = self.BLOCK_SPECS[block_idx]
+        half_size = np.array([w / 2, d / 2, h / 2])
+        return self.grasp_planner.generate_candidates(pos, half_size, quat)
+
+    def compute_pickup_pose(self, block_idx: int) -> Optional[GraspCandidate]:
+        """Return the best grasp candidate for a block, or None if none found."""
+        candidates = self.compute_pickup_candidates(block_idx)
+        return candidates[0] if candidates else None
     
     def compute_putdown_pose(self, target_x: float, target_y: float, target_z: float) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -454,9 +438,12 @@ class BlocksStateManager(BaseStateManager):
         Returns:
             Tuple of (position, quaternion) for end-effector
         """
-        # Place position is slightly above target
-        place_position = np.array([target_x, target_y, target_z + 0.01])
-        
+        # For a top-down grasp the attachment_site sits GRASP_CONTACT_OFFSET above
+        # the contact centre (= block centre during pickup).  The same offset applies
+        # in reverse: to land block centre at target_z, the EE must be at target_z +
+        # GRASP_CONTACT_OFFSET.
+        place_position = np.array([target_x, target_y, target_z + GRASP_CONTACT_OFFSET])
+
         # Same downward orientation as pickup
         place_quaternion = np.array([0.0, 1.0, 0.0, 0.0])
         
