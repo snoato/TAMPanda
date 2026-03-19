@@ -40,10 +40,11 @@ def main():
         
         if converged:
             print("IK converged successfully!")
-            
-            # Apply joint positions and hold
+
+            # Apply joint positions with gravity compensation and hold
             target_q = ik.configuration.q[:8].copy()
-            
+            target_q[:7] = env.gravity_compensated_target(target_q[:7])
+
             while viewer.is_running():
                 env.step()
                 env.data.ctrl[:8] = target_q
