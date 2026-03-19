@@ -132,8 +132,9 @@ def main():
         
         # Action 1: Pick cube 1 from table
         print(f"\n   Action 1: Pick block_{cube1_idx} from table")
-        pickup_pose1, pickup_quat1 = state_manager.compute_pickup_pose(cube1_idx)
-        print(f"   Pickup pose: pos={pickup_pose1}, quat={pickup_quat1}")
+        candidate1 = state_manager.compute_pickup_pose(cube1_idx)
+        if candidate1:
+            print(f"   Pickup pose: pos={candidate1.grasp_pos}, quat={candidate1.grasp_quat}")
         
         # Simulate picking (for now, just update internal state)
         # In a full implementation, this would use IK + motion planning
@@ -162,8 +163,9 @@ def main():
         
         # Action 3: Pick cube 2 from table
         print(f"\n   Action 3: Pick block_{cube2_idx} from table")
-        pickup_pose2, pickup_quat2 = state_manager.compute_pickup_pose(cube2_idx)
-        print(f"   Pickup pose: pos={pickup_pose2}, quat={pickup_quat2}")
+        candidate2 = state_manager.compute_pickup_pose(cube2_idx)
+        if candidate2:
+            print(f"   Pickup pose: pos={candidate2.grasp_pos}, quat={candidate2.grasp_quat}")
         
         state_manager.gripper_holding = cube2_idx
         state_manager._hide_block(cube2_idx)
