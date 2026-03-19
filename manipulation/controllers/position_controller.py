@@ -1,7 +1,7 @@
 """Position controller implementation."""
 
 import numpy as np
-from typing import List
+from typing import List, Optional
 
 from manipulation.core.base_controller import BaseController, ControllerStatus
 
@@ -27,7 +27,7 @@ class PositionController(BaseController):
     ) -> List[np.ndarray]:
         if len(path) <= 1:
             return path
-        
+
         interpolated = [path[0].copy()]
         for i in range(len(path) - 1):
             start, end = path[i], path[i + 1]
@@ -35,17 +35,18 @@ class PositionController(BaseController):
                 steps = max(1, int(np.ceil(np.linalg.norm(end - start) / step_size)))
             else:
                 steps = steps_per_segment
-            
+
             for step in range(1, steps + 1):
                 alpha = step / steps
                 interpolated.append((1 - alpha) * start + alpha * end)
         return interpolated
-    
+
     def __init__(self, model, data):
         self.model = model
         self.data = data
         self.status = ControllerStatus.IDLE
-        self.trajectory = []
+        self.trajectory = []   # compensated ctrl targets
+        self._waypoints = []   # uncompensated joint targets (used for advance condition)
 
     def step(self, delta: float = 0.1, grasping_delta: float = 0.3):
         if self.status == ControllerStatus.IDLE:
@@ -56,12 +57,19 @@ class PositionController(BaseController):
 
         if self.status == ControllerStatus.MOVING:
             if self.trajectory:
-                ctrl = self.data.ctrl.copy()[:7]
-                qpos = self.data.qpos.copy()[:7]
-                ctrl_ref = self.trajectory[0] 
+                ctrl    = self.data.ctrl.copy()[:7]
+                qpos    = self.data.qpos.copy()[:7]
+                ctrl_ref = self.trajectory[0]
+                # Advance condition uses the uncompensated waypoint so that
+                # gravity-compensated trajectories (where ctrl_ref = wp + bias/Kp)
+                # don't require |bias/Kp| < delta to advance — they advance as soon
+                # as the arm reaches the actual joint target wp.
+                wp_ref   = self._waypoints[0] if self._waypoints else ctrl_ref
 
-                if np.linalg.norm(ctrl_ref - qpos) < delta and (ctrl == ctrl_ref).all():
+                if np.linalg.norm(wp_ref - qpos) < delta and (ctrl == ctrl_ref).all():
                     self.trajectory.pop(0)
+                    if self._waypoints:
+                        self._waypoints.pop(0)
                     if not self.trajectory:
                         self.status = ControllerStatus.IDLE
                         return
@@ -72,7 +80,7 @@ class PositionController(BaseController):
             else:
                 self.status = ControllerStatus.IDLE
                 return
-        
+
         if self.status == ControllerStatus.GRASPING:
             ctrl = self.data.ctrl[7]
             qpos = self.data.qpos[7]
@@ -85,18 +93,21 @@ class PositionController(BaseController):
             print("Controller is busy. Cannot move to new position.")
             return
         self.trajectory = [configuration]
+        self._waypoints = []
 
     def move_to_incremental(self, target_configuration: np.ndarray, step_size: float = 0.01):
         start = self.data.qpos.copy()[:7]
         end = target_configuration
         self.trajectory = PositionController.interpolate_linear_points(start, end, step_size)
+        self._waypoints = []
 
     def get_status(self) -> ControllerStatus:
         return self.status
-    
+
     def stop(self):
         self.status = ControllerStatus.IDLE
         self.trajectory = []
+        self._waypoints = []
 
     def open_gripper(self):
         self.data.ctrl[7] = 0.04
@@ -106,11 +117,27 @@ class PositionController(BaseController):
         self.data.ctrl[7] = -0.2
         self.status = ControllerStatus.GRASPING
 
-    def follow_trajectory(self, trajectory: List[np.ndarray]):
+    def follow_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        waypoints: Optional[List[np.ndarray]] = None,
+    ):
+        """Load a trajectory for execution.
+
+        Args:
+            trajectory: Compensated ctrl targets sent to the actuators.
+            waypoints: Uncompensated joint targets used for the advance
+                       condition.  When gravity compensation is applied,
+                       pass the raw (pre-compensation) waypoints here so
+                       the advance fires when qpos reaches the intended
+                       joint target rather than the shifted ctrl value.
+                       If None, trajectory is used for both (legacy mode).
+        """
         if self.status != ControllerStatus.IDLE:
             print("Controller is busy. Cannot follow new trajectory.")
             return
         self.trajectory = trajectory
+        self._waypoints = waypoints if waypoints is not None else []
 
     def velocity_control(self, target_velocity: np.ndarray, duration: float, dt: float):
         pass
