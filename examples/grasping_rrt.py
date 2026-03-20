@@ -3,10 +3,9 @@
 from pathlib import Path
 import time
 
-from manipulation import FrankaEnvironment, RRTStar, ControllerStatus
+from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, SCENE_TEST
 
-_HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_test.xml"
+_XML = SCENE_TEST
 
 
 def main():

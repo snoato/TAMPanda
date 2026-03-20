@@ -22,16 +22,12 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-from manipulation import FrankaEnvironment, RRTStar
+from manipulation import FrankaEnvironment, RRTStar, SCENE_SYMBOLIC
 from manipulation.planners.grasp_planner import GraspPlanner
 from manipulation.symbolic.domains.tabletop import GridDomain, StateManager
 from manipulation.symbolic.domains.tabletop.feasibility import ActionFeasibilityChecker
 
-_HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
-)
+_XML = SCENE_SYMBOLIC
 
 TABLE_Z: float = 0.27
 

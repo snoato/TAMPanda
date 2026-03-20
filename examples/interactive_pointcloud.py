@@ -5,11 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from manipulation import FrankaEnvironment
+from manipulation import FrankaEnvironment, SCENE_SYMBOLIC
 from manipulation.perception import MujocoCamera
 
-_HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
+_XML = SCENE_SYMBOLIC
 
 
 def main():

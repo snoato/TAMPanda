@@ -5,12 +5,12 @@ import time
 import re
 import matplotlib.pyplot as plt
 
-from manipulation import FrankaEnvironment
+from manipulation import FrankaEnvironment, SCENE_SYMBOLIC
 from manipulation.symbolic import GridDomain, StateManager, visualize_grid_state
 from manipulation.symbolic.domains.tabletop.state_manager import extract_grid_dimensions_from_pddl
 
 _HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
+_XML = SCENE_SYMBOLIC
 _DOMAIN_DIR = _HERE / ".." / "manipulation" / "symbolic" / "domains" / "tabletop" / "pddl"
 _PROBLEM_DIR = _HERE / ".." / "manipulation" / "symbolic" / "domains" / "tabletop" / "pddl" / "problems"
 _VIZ_DIR = _HERE / ".." / "manipulation" / "symbolic" / "viz"

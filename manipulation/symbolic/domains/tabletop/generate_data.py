@@ -32,17 +32,14 @@ try:
 except ImportError:
     wandb = None
 
-from manipulation import FrankaEnvironment, RRTStar
+from manipulation import FrankaEnvironment, RRTStar, SCENE_SYMBOLIC
 from manipulation.planners.grasp_planner import GraspPlanner, GraspType
 from manipulation.symbolic.domains.tabletop.grid_domain import GridDomain
 from manipulation.symbolic.domains.tabletop.state_manager import StateManager
 from manipulation.symbolic.domains.tabletop.visualization import visualize_grid_state
 
 _HERE   = Path(__file__).parent
-_XML    = (
-    _HERE / ".." / ".." / ".." / "environments"
-    / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
-).resolve()
+_XML    = SCENE_SYMBOLIC
 _DOMAIN = (_HERE / "pddl" / "domain.pddl").resolve()
 
 # ---------------------------------------------------------------------------

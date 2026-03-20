@@ -11,11 +11,11 @@ try:
 except ImportError:
     wandb = None
 
-from manipulation import FrankaEnvironment, RRTStar, ControllerStatus
+from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, SCENE_SYMBOLIC
 from manipulation.symbolic import GridDomain, StateManager, visualize_grid_state
 
 _HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
+_XML = SCENE_SYMBOLIC
 
 # Default values
 _DEFAULT_OUTPUT_DIR = _HERE / ".." / "data"

@@ -4,11 +4,11 @@ from pathlib import Path
 import time
 import numpy as np
 
-from manipulation import FrankaEnvironment
+from manipulation import FrankaEnvironment, SCENE_BLOCKS
 from manipulation.symbolic.domains.blocks import BlocksDomain, BlocksStateManager
 
 _HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_blocks.xml"
+_XML = SCENE_BLOCKS
 _DOMAIN_DIR = _HERE / ".." / "manipulation" / "symbolic" / "domains" / "blocks" / "pddl"
 _OUTPUT_DIR = _HERE / "blocks_output"
 

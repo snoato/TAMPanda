@@ -9,12 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from manipulation import FrankaEnvironment
+from manipulation import FrankaEnvironment, SCENE_TEST
 from manipulation.perception import MujocoCamera
 
-# Define path to scene XML
-_HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_test.xml"
+_XML = SCENE_TEST
 
 def visualize_segmented_clouds(segmented_clouds):
     """

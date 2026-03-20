@@ -25,15 +25,11 @@ import matplotlib.pyplot as plt
 import mujoco
 import numpy as np
 
-from manipulation import FrankaEnvironment
+from manipulation import FrankaEnvironment, SCENE_SYMBOLIC
 from manipulation.symbolic.domains.tabletop.grid_domain import GridDomain
 from manipulation.symbolic.domains.tabletop.state_manager import StateManager
 
-_HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
-).resolve()
+_XML = SCENE_SYMBOLIC
 
 TABLE_BODY  = "simple_table"
 TABLE_GEOM  = "table_surface"

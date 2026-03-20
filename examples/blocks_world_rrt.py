@@ -7,16 +7,13 @@ from pathlib import Path
 import time
 import numpy as np
 
-from manipulation import FrankaEnvironment, RRTStar, GraspPlanner
+from manipulation import FrankaEnvironment, RRTStar, GraspPlanner, SCENE_BLOCKS
 from manipulation.planners import PickPlaceExecutor
 from manipulation.planners.grasp_planner import GRASP_CONTACT_OFFSET
 from manipulation.symbolic.domains.blocks import BlocksDomain, BlocksStateManager
 
 _HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_blocks.xml"
-)
+_XML  = SCENE_BLOCKS
 _OUTPUT_DIR = _HERE / "blocks_output"
 
 

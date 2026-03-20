@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from manipulation import FrankaEnvironment, RRTStar, ControllerStatus
+from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, SCENE_TEST
 from manipulation.perception import MujocoCamera
 
 _HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_test.xml"
+_XML = SCENE_TEST
 _OUTPUT_DIR = _HERE / "grasp_captures"
 
 

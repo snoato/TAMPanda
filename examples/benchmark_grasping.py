@@ -16,15 +16,10 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-from manipulation import FrankaEnvironment, RRTStar, ControllerStatus
+from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, SCENE_BLOCKS
 from manipulation.planners.grasp_planner import GraspPlanner, GraspType
 
-# ---------------------------------------------------------------------------
-_HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_blocks.xml"
-)
+_XML = SCENE_BLOCKS
 
 TABLE_SURFACE_Z: float = 0.27
 

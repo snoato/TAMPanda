@@ -11,11 +11,10 @@ GraspPlanner differences:
 from pathlib import Path
 import time
 
-from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, GraspPlanner
+from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, GraspPlanner, SCENE_TEST
 from manipulation.planners.grasp_planner import GraspType
 
-_HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene_test.xml"
+_XML = SCENE_TEST
 
 _TABLE_Z = 0.27
 

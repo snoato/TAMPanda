@@ -3,6 +3,14 @@ Manipulation - A robotics manipulation package built on MuJoCo and MINK.
 """
 
 from manipulation.environments.franka_env import FrankaEnvironment
+from manipulation.environments.assets import (
+    SCENE_DEFAULT,
+    SCENE_SYMBOLIC,
+    SCENE_BLOCKS,
+    SCENE_MAMO,
+    SCENE_TEST,
+    SCENE_MJX,
+)
 from manipulation.ik.mink_ik import MinkIK
 from manipulation.planners.rrt_star import RRTStar
 from manipulation.planners.grasp_planner import GraspPlanner, GraspCandidate, GraspType
@@ -13,6 +21,12 @@ __version__ = "0.1.0"
 
 __all__ = [
     "FrankaEnvironment",
+    "SCENE_DEFAULT",
+    "SCENE_SYMBOLIC",
+    "SCENE_BLOCKS",
+    "SCENE_MAMO",
+    "SCENE_TEST",
+    "SCENE_MJX",
     "MinkIK",
     "RRTStar",
     "GraspPlanner",

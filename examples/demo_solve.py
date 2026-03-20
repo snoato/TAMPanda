@@ -20,7 +20,7 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-from manipulation import FrankaEnvironment, RRTStar
+from manipulation import FrankaEnvironment, RRTStar, SCENE_SYMBOLIC
 from manipulation.planners.grasp_planner import GraspPlanner, GraspType
 from manipulation.symbolic.domains.tabletop.grid_domain import GridDomain
 from manipulation.symbolic.domains.tabletop.state_manager import StateManager
@@ -28,11 +28,7 @@ from manipulation.symbolic.domains.tabletop.generate_data import (
     _patch_fast_step, _sample_state, _select_target,
 )
 
-_HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_symbolic.xml"
-).resolve()
+_XML = SCENE_SYMBOLIC
 
 # Discard position — off to the right of the table
 _DISCARD_POS  = np.array([0.55, 0.0, 0.65])

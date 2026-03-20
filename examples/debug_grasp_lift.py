@@ -21,14 +21,10 @@ from pathlib import Path
 import numpy as np
 import mujoco
 
-from manipulation import FrankaEnvironment, RRTStar, ControllerStatus
+from manipulation import FrankaEnvironment, RRTStar, ControllerStatus, SCENE_BLOCKS
 from manipulation.environments.franka_env import _EFF_KP
 
-_HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_blocks.xml"
-)
+_XML = SCENE_BLOCKS
 
 GRASP_POS  = np.array([0.45, 0.10, 0.31])
 GRASP_QUAT = np.array([0.0, 1.0, 0.0, 0.0])

@@ -25,14 +25,10 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-from manipulation import FrankaEnvironment, RRTStar, GraspPlanner
+from manipulation import FrankaEnvironment, RRTStar, GraspPlanner, SCENE_TEST
 from manipulation.planners.grasp_planner import GraspType
 
-_HERE = Path(__file__).parent
-_XML  = (
-    _HERE / ".." / "manipulation" / "environments"
-    / "assets" / "franka_emika_panda" / "scene_test.xml"
-)
+_XML = SCENE_TEST
 
 TABLE_SURFACE_Z: float = 0.27
 LIFT_THRESHOLD:  float = 0.08   # cylinder must rise ≥ 8 cm

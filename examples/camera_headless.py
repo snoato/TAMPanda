@@ -1,9 +1,10 @@
 import numpy as np
 from manipulation.environments.franka_env import FrankaEnvironment
 from manipulation.perception import MujocoCamera
+from manipulation import SCENE_SYMBOLIC
 
 # Create environment (headless - no viewer)
-env = FrankaEnvironment("manipulation/environments/assets/franka_emika_panda/scene_symbolic.xml")
+env = FrankaEnvironment(str(SCENE_SYMBOLIC))
 
 # Create camera instance
 camera = MujocoCamera(env, width=640, height=480)

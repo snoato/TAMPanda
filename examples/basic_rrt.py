@@ -3,10 +3,9 @@
 from pathlib import Path
 import numpy as np
 
-from manipulation import FrankaEnvironment, RRTStar
+from manipulation import FrankaEnvironment, RRTStar, SCENE_DEFAULT
 
-_HERE = Path(__file__).parent
-_XML = _HERE / ".." / "manipulation" / "environments" / "assets" / "franka_emika_panda" / "scene.xml"
+_XML = SCENE_DEFAULT
 
 
 def main():
