@@ -91,12 +91,10 @@ class StateManager(BaseStateManager):
         # Find the cell containing the cylinder's center position
         # We use abstract representation: one cylinder = one cell (its center cell)
         # This allows PDDL pick/place actions to work correctly
-        try:
-            center_cell = self.grid.get_cell_at_position(cyl_x, cyl_y)
-            return {center_cell}
-        except ValueError:
-            # Cylinder is outside the grid
+        center_cell = self.grid.get_cell_at_position(cyl_x, cyl_y)
+        if center_cell is None:
             return set()
+        return {center_cell}
     
     def ground_state(self) -> Dict[str, any]:
         """
@@ -145,7 +143,7 @@ class StateManager(BaseStateManager):
             
             # Get cylinder height - position center slightly above table to avoid initial contact
             _, height = self.CYLINDER_SPECS[cyl_idx]
-            centroid_z = self.grid.table_height + height / 2.0 + 0.003  # 0.3cm clearance
+            centroid_z = self.grid.table_height + height + 0.002
             
             # Set cylinder position
             self._set_cylinder_position(cyl_idx, centroid_x, centroid_y, centroid_z)
@@ -269,7 +267,7 @@ class StateManager(BaseStateManager):
             
             # Get cylinder height - position center slightly above table to avoid initial contact
             _, height = self.CYLINDER_SPECS[cyl_idx]
-            centroid_z = self.grid.table_height + height / 2.0 + 0.3  # 0.5cm clearance
+            centroid_z = self.grid.table_height + height + 0.002
             
             # Set cylinder position
             self._set_cylinder_position(cyl_idx, centroid_x, centroid_y, centroid_z)
@@ -352,7 +350,7 @@ class StateManager(BaseStateManager):
                     cell_name = f"cell_{cell_x}_{cell_y}"
                     center_x, center_y = self.grid.cells[cell_name]['center']
                     _, height = self.CYLINDER_SPECS[cyl_idx]
-                    center_z = self.grid.table_height + height / 2.0 + 0.013  # 0.3cm clearance
+                    center_z = self.grid.table_height + height + 0.002
                     
                     self._set_cylinder_position(cyl_idx, center_x, center_y, center_z)
                     cylinder_positions[cyl_idx] = (cell_x, cell_y)
