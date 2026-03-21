@@ -429,6 +429,7 @@ def _write_plan(path: Path, plan: list[str], cylinder_cells: dict[str, str],
         f.write(f"; split: {split}\n")
         f.write(f"; config_num: {config_num}\n")
         f.write(f"; Target: {target}\n")
+        f.write(f"; num removals before target: {len(plan) - 1}\n")
         f.write(f"; Plan: {', '.join(plan)}\n")
         f.write(f"; Objects: {', '.join(cylinders)}\n")
         f.write(f"; Generation time: {gen_sec:.2f}s\n")
