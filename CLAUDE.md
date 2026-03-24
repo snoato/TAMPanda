@@ -21,7 +21,7 @@ python basic_rrt.py          # RRT* motion planning
 python grasping_ik.py        # Pick-and-place with IK
 python grasping_rrt.py       # Pick-and-place with RRT*
 python symbolic.py           # Grid-based PDDL planning
-python generate_data.py      # Data generation (supports multiprocessing)
+python -m manipulation.symbolic.domains.tabletop.generate_data  # Tabletop data generation (supports multiprocessing)
 ```
 
 ## Architecture
