@@ -90,6 +90,12 @@ class FrankaEnvironment(BaseEnvironment):
             self.model, mujoco.mjtObj.mjOBJ_SITE, "attachment_site"
         )
 
+        # Held-body collision state: positions a held object at the EE during
+        # every is_collision_free call so RRT* sees it as part of the arm.
+        # Separate from _attached (which drives step()); this only affects
+        # collision queries and never writes back to step().
+        self._collision_held_body: Optional[dict] = None
+
     def get_model(self):
         return self.model
     
@@ -193,24 +199,30 @@ class FrankaEnvironment(BaseEnvironment):
     def is_collision_free(self, configuration: np.ndarray) -> bool:
         qpos_save = self.data.qpos.copy()
         qvel_save = self.data.qvel.copy()
-        
+
         self.data.qpos[:7] = configuration
         self.data.qvel[:] = 0.0
         mujoco.mj_forward(self.model, self.data)
+        if self._collision_held_body is not None:
+            self._apply_collision_held_body()
+            mujoco.mj_forward(self.model, self.data)
 
         collision_free = self.check_collisions()
 
         self.data.qpos[:] = qpos_save
         self.data.qvel[:] = qvel_save
         mujoco.mj_forward(self.model, self.data)
-        
+
         return collision_free
-    
+
     def is_collision_free_no_restore(self, configuration: np.ndarray) -> bool:
         """Check collision without saving/restoring state. Faster for batch checks."""
         self.data.qpos[:7] = configuration
         self.data.qvel[:7] = 0.0
         mujoco.mj_forward(self.model, self.data)
+        if self._collision_held_body is not None:
+            self._apply_collision_held_body()
+            mujoco.mj_forward(self.model, self.data)
         return self.check_collisions()
     
     def is_path_collision_free(self, config1: np.ndarray, config2: np.ndarray, steps: int = 5) -> bool:
@@ -427,6 +439,49 @@ class FrankaEnvironment(BaseEnvironment):
     def detach_object(self):
         """Remove the kinematic attachment set by attach_object_to_ee()."""
         self._attached = None
+
+    def set_collision_held_body(self, body_name: str,
+                                rel_pos: np.ndarray, rel_mat: np.ndarray):
+        """Register a held body for collision-checking purposes.
+
+        Unlike ``attach_object_to_ee`` (which drives ``step()``), this only
+        affects ``is_collision_free`` / ``is_path_collision_free``: before each
+        ``mj_forward`` in those methods the body is teleported to
+        ``ee_pos + R_ee @ rel_pos`` so that RRT* sees the held object as part
+        of the arm geometry.
+
+        Args:
+            body_name: Free body whose freejoint will be repositioned.
+            rel_pos:   Object-centre position in EE frame (e.g. [0,0,offset]).
+            rel_mat:   Object orientation relative to EE frame (3×3 rotation).
+        """
+        joint_name = f"{body_name}_freejoint"
+        joint_id   = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+        if joint_id < 0:
+            raise ValueError(f"Free joint '{joint_name}' not found")
+        self._collision_held_body = {
+            "qadr":    self.model.jnt_qposadr[joint_id],
+            "rel_pos": rel_pos.copy(),
+            "rel_mat": rel_mat.copy(),
+        }
+
+    def clear_collision_held_body(self):
+        """Remove the held-body collision registration."""
+        self._collision_held_body = None
+
+    def _apply_collision_held_body(self):
+        """Teleport the held body to the current EE pose (call after mj_forward)."""
+        h = self._collision_held_body
+        if h is None:
+            return
+        ee_pos = self.data.site_xpos[self._ee_site_id]
+        ee_mat = self.data.site_xmat[self._ee_site_id].reshape(3, 3)
+        new_pos  = ee_pos + ee_mat @ h["rel_pos"]
+        new_mat  = ee_mat @ h["rel_mat"]
+        new_quat = _mat2quat(new_mat)
+        qadr = h["qadr"]
+        self.data.qpos[qadr:qadr + 3] = new_pos
+        self.data.qpos[qadr + 3:qadr + 7] = new_quat
 
     def _apply_attachment(self):
         """Update the attached body's pose to track the EE. Called inside step()."""
