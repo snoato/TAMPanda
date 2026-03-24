@@ -43,6 +43,10 @@ class RRTStar(BaseMotionPlanner):
         self.step_size = step_size
         self.search_radius = search_radius
         self.goal_threshold = goal_threshold
+        # Number of intermediate configs checked per edge during collision
+        # detection.  Higher values catch narrow obstacles but increase planning
+        # time roughly linearly.  Default 5 matches original behaviour.
+        self.collision_check_steps: int = 5
         
         # Joint limits for sampling
         self.joint_limits_low = self.model.jnt_range[:7, 0].copy()
@@ -68,8 +72,10 @@ class RRTStar(BaseMotionPlanner):
         self,
         config1: np.ndarray,
         config2: np.ndarray,
-        steps: int = 5
+        steps: int = None,
     ) -> bool:
+        if steps is None:
+            steps = self.collision_check_steps
         # Use optimized batch method from environment if available
         if hasattr(self.env, 'is_path_collision_free'):
             return self.env.is_path_collision_free(config1, config2, steps)
