@@ -32,6 +32,7 @@ import mujoco
 import numpy as np
 
 from manipulation.planners.grasp_planner import GraspPlanner, GraspType
+from manipulation.symbolic.domains.tabletop.state_manager import StateManager
 
 
 class ActionFeasibilityChecker:
@@ -74,6 +75,8 @@ class ActionFeasibilityChecker:
         # Bypass the rate limiter — checker is always headless
         _dt = env.model.opt.timestep
         def _fast_step():
+            if env._attached is not None:
+                env._apply_attachment()
             mujoco.mj_step(env.model, env.data)
             env.sim_time += _dt
             return _dt
@@ -84,14 +87,17 @@ class ActionFeasibilityChecker:
     # ------------------------------------------------------------------
 
     def check(self, action_name: str, state_dict: dict,
-              cylinder_name: str | None = None) -> tuple[bool, dict]:
+              cylinder_name: str | None = None,
+              target_cell: str | None = None) -> tuple[bool, dict]:
         """Check feasibility of an action in a given symbolic state.
 
         Args:
-            action_name:   ``"pick"`` or ``"drop"``.
+            action_name:   ``"pick"``, ``"drop"``, or ``"put"``.
             state_dict:    Symbolic state dict (same format as
                            ``StateManager.ground_state()``).
-            cylinder_name: Required for ``"pick"``.
+            cylinder_name: Required for ``"pick"`` and ``"put"``.
+            target_cell:   Required for ``"put"`` — cell ID to place the
+                           cylinder into (e.g. ``"cell_2_3"``).
 
         Returns:
             ``(feasible, timing)`` where *timing* is a dict with per-phase
@@ -103,8 +109,14 @@ class ActionFeasibilityChecker:
             return self._check_pick(state_dict, cylinder_name)
         elif action_name == "drop":
             return self._check_drop(state_dict)
+        elif action_name == "put":
+            if cylinder_name is None:
+                raise ValueError("cylinder_name is required for action 'put'")
+            if target_cell is None:
+                raise ValueError("target_cell is required for action 'put'")
+            return self._check_put(state_dict, cylinder_name, target_cell)
         else:
-            raise ValueError(f"Unknown action '{action_name}'. Expected 'pick' or 'drop'.")
+            raise ValueError(f"Unknown action '{action_name}'. Expected 'pick', 'drop', or 'put'.")
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -279,6 +291,123 @@ class ActionFeasibilityChecker:
             print(f"\nResult: {n_ok}/{n_cells} cells reachable.")
 
         return results
+
+    # ------------------------------------------------------------------
+    # Put feasibility
+    # ------------------------------------------------------------------
+
+    def _check_put(self, state_dict: dict, cylinder_name: str,
+                   target_cell: str) -> tuple[bool, dict]:
+        """Check feasibility of placing *cylinder_name* (currently held) at *target_cell*.
+
+        Feasibility for **put** is defined as:
+          1. GraspPlanner produces at least one candidate for the target position.
+          2. IK converges for the pre-place standoff pose above the target cell.
+          3. RRT* finds a collision-free path to the standoff.
+          4. IK converges for the place-contact pose (gripper descended to cell).
+          5. RRT* finds a collision-free path from standoff to place contact.
+
+        The held cylinder is hidden and added as a collision exception — it
+        moves with the gripper and will not block the arm's path.
+        """
+        t_total = time.perf_counter()
+        timing: dict = {}
+
+        # 1. Load state.  set_from_grounded_state (called by _init_state) sees
+        #    'holding' and:
+        #      • places the cylinder physically at the EE
+        #      • calls env.set_collision_held_body() so every subsequent
+        #        is_collision_free check teleports it to EE_pos + R_ee @ rel_pos
+        #    The cylinder is therefore a real collision object during RRT* —
+        #    the planner will detect if the carried cylinder clips other objects.
+        cylinders_on_table = {
+            k: v for k, v in state_dict.get("cylinders", {}).items()
+            if k != cylinder_name
+        }
+        put_state = {**state_dict, "cylinders": cylinders_on_table,
+                     "holding": cylinder_name}
+        self._init_state(put_state)
+
+        cyl_idx = int(cylinder_name.split("_")[1])
+        radius, half_height = StateManager.CYLINDER_SPECS[cyl_idx]
+        half_size  = np.array([radius, radius, half_height])
+        dt = self._env.model.opt.timestep
+
+        # 2. Compute target position: cell centre at cylinder resting height.
+        grid = self._state_manager.grid
+        cx, cy = grid.cells[target_cell]["center"]
+        cyl_z      = grid.table_height + half_height + 0.002
+        target_pos = np.array([cx, cy, cyl_z])
+
+        # 3. Generate place candidates.
+        candidates = self._grasp_planner.generate_candidates(target_pos, half_size)
+        candidate  = self._pick_candidate(candidates)
+
+        def _cleanup():
+            self._env.clear_collision_held_body()
+            self._env.detach_object()
+
+        if candidate is None:
+            _cleanup()
+            timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+            return False, {**timing, "reason": "no_place_candidate"}
+
+        timing["place_pos"]  = candidate.grasp_pos
+        timing["place_quat"] = candidate.grasp_quat
+
+        # 4. IK — pre-place standoff (above target cell)
+        t0 = time.perf_counter()
+        self._env.ik.set_target_position(candidate.approach_pos, candidate.grasp_quat)
+        ik_ok = self._env.ik.converge_ik(dt)
+        timing["ik_approach_ms"] = (time.perf_counter() - t0) * 1000
+
+        if not ik_ok:
+            _cleanup()
+            timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+            return False, {**timing, "reason": "ik_approach_fail"}
+
+        # 5. RRT* — path to pre-place standoff
+        t0 = time.perf_counter()
+        path = self._planner.plan_to_pose(
+            candidate.approach_pos, candidate.grasp_quat,
+            dt=dt, max_iterations=self.max_iterations,
+        )
+        timing["rrt_approach_ms"] = (time.perf_counter() - t0) * 1000
+
+        if path is None:
+            _cleanup()
+            timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+            return False, {**timing, "reason": "rrt_approach_fail"}
+
+        # Execute standoff path so place-descent check starts from correct config.
+        self._env.execute_path(path, self._planner)
+        self._wait_idle()
+
+        # 6. IK — place-contact pose (descend to cylinder resting height)
+        t0 = time.perf_counter()
+        self._env.ik.set_target_position(candidate.grasp_pos, candidate.grasp_quat)
+        ik_ok = self._env.ik.converge_ik(dt)
+        timing["ik_place_ms"] = (time.perf_counter() - t0) * 1000
+
+        if not ik_ok:
+            _cleanup()
+            timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+            return False, {**timing, "reason": "ik_place_fail"}
+
+        # 7. RRT* — descent to place-contact
+        t0 = time.perf_counter()
+        path = self._planner.plan_to_pose(
+            candidate.grasp_pos, candidate.grasp_quat,
+            dt=dt, max_iterations=self.max_iterations,
+        )
+        timing["rrt_place_ms"] = (time.perf_counter() - t0) * 1000
+
+        _cleanup()
+
+        feasible = path is not None
+        timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+        timing["reason"]   = "ok" if feasible else "rrt_place_fail"
+        return feasible, timing
 
     # ------------------------------------------------------------------
     # Drop feasibility
