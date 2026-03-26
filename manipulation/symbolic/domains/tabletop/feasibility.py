@@ -31,7 +31,7 @@ import time
 import mujoco
 import numpy as np
 
-from manipulation.planners.grasp_planner import GraspPlanner, GraspType
+from manipulation.planners.grasp_planner import GraspPlanner, GraspType, quat_to_rotmat
 from manipulation.symbolic.domains.tabletop.state_manager import StateManager
 
 
@@ -146,6 +146,7 @@ class ActionFeasibilityChecker:
         front = next((c for c in candidates if c.grasp_type == GraspType.FRONT), None)
         return front if front is not None else (candidates[0] if candidates else None)
 
+
     # ------------------------------------------------------------------
     # Pick feasibility
     # ------------------------------------------------------------------
@@ -220,11 +221,63 @@ class ActionFeasibilityChecker:
         )
         timing["rrt_grasp_ms"] = (time.perf_counter() - t0) * 1000
 
+        if path is None:
+            self._env.clear_collision_exceptions()
+            timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+            return False, {**timing, "reason": "rrt_grasp_fail"}
+
+        # Execute grasp so transport check starts from the real post-grasp config.
+        # Keep the cylinder exception active: fingers touch the cylinder at the
+        # grasp position, so is_collision_free(start) would fail without it.
+        self._env.execute_path(path, self._planner)
+        self._wait_idle()
+        # (exception still active)
+
+        # 7. IK — transport pose (seed from HOME, same as execution)
+        t0 = time.perf_counter()
+        home_qpos = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853, 0.04])
+        home_full = self._env.data.qpos.copy()
+        home_full[:8] = home_qpos
+        self._env.ik.update_configuration(home_full)
+        transport_pos, transport_quat = self._state_manager.get_transport_pose()
+        self._env.ik.set_target_position(transport_pos, transport_quat)
+        ik_ok = self._env.ik.converge_ik(dt)
+        timing["ik_transport_ms"] = (time.perf_counter() - t0) * 1000
+
+        if not ik_ok:
+            timing["total_ms"] = (time.perf_counter() - t_total) * 1000
+            return False, {**timing, "reason": "ik_transport_fail"}
+
+        transport_q = self._env.ik.configuration.q[:7].copy()
+
+        # 8. RRT* — transport path (link7 excluded, same as execution).
+        # Retry once on failure: transport RRT has high variance and a path
+        # that exists may not be found within the per-check iteration budget.
+        link7_id = mujoco.mj_name2id(
+            self._env.model, mujoco.mjtObj.mjOBJ_BODY, "link7"
+        )
+        saved_ids  = self._env._collision_body_ids
+        saved_held = self._env._collision_held_body
+        self._env._collision_body_ids = saved_ids - {link7_id}
+        self._env._collision_held_body = None
+        t0 = time.perf_counter()
+        path = self._planner.plan(
+            self._env.data.qpos[:7], transport_q,
+            max_iterations=self.max_iterations,
+        )
+        if path is None:
+            path = self._planner.plan(
+                self._env.data.qpos[:7], transport_q,
+                max_iterations=self.max_iterations,
+            )
+        timing["rrt_transport_ms"] = (time.perf_counter() - t0) * 1000
+        self._env._collision_body_ids = saved_ids
+        self._env._collision_held_body = saved_held
         self._env.clear_collision_exceptions()
 
         feasible = path is not None
         timing["total_ms"] = (time.perf_counter() - t_total) * 1000
-        timing["reason"]   = "ok" if feasible else "rrt_grasp_fail"
+        timing["reason"]   = "ok" if feasible else "rrt_transport_fail"
 
         return feasible, timing
 
@@ -339,7 +392,8 @@ class ActionFeasibilityChecker:
         cyl_z      = grid.table_height + half_height + 0.002
         target_pos = np.array([cx, cy, cyl_z])
 
-        # 3. Generate place candidates.
+        # 3. Generate place candidates — FRONT preferred so the cylinder stays
+        #    vertical (rel_pos was recorded in the FRONT EE frame at pick time).
         candidates = self._grasp_planner.generate_candidates(target_pos, half_size)
         candidate  = self._pick_candidate(candidates)
 
@@ -352,12 +406,24 @@ class ActionFeasibilityChecker:
             timing["total_ms"] = (time.perf_counter() - t_total) * 1000
             return False, {**timing, "reason": "no_place_candidate"}
 
-        timing["place_pos"]  = candidate.grasp_pos
-        timing["place_quat"] = candidate.grasp_quat
+        # Compute EE positions using the stored EE-frame offset so the cylinder
+        # lands exactly on the cell centre.
+        put_quat     = candidate.grasp_quat
+        R_put        = quat_to_rotmat(put_quat)
+        rel_pos_ee   = self._env._attached["rel_pos"]
+        place_ee_pos = target_pos - R_put @ rel_pos_ee
+        # Approach from directly above (not from behind in Y) so the held
+        # cylinder is ~12 cm above resting height during the approach, clear
+        # of all table cylinders.
+        approach_pos = place_ee_pos + np.array([0.0, 0.0,
+                                                self._grasp_planner.approach_dist])
+
+        timing["place_pos"]  = place_ee_pos
+        timing["place_quat"] = put_quat
 
         # 4. IK — pre-place standoff (above target cell)
         t0 = time.perf_counter()
-        self._env.ik.set_target_position(candidate.approach_pos, candidate.grasp_quat)
+        self._env.ik.set_target_position(approach_pos, put_quat)
         ik_ok = self._env.ik.converge_ik(dt)
         timing["ik_approach_ms"] = (time.perf_counter() - t0) * 1000
 
@@ -369,7 +435,7 @@ class ActionFeasibilityChecker:
         # 5. RRT* — path to pre-place standoff
         t0 = time.perf_counter()
         path = self._planner.plan_to_pose(
-            candidate.approach_pos, candidate.grasp_quat,
+            approach_pos, put_quat,
             dt=dt, max_iterations=self.max_iterations,
         )
         timing["rrt_approach_ms"] = (time.perf_counter() - t0) * 1000
@@ -385,7 +451,7 @@ class ActionFeasibilityChecker:
 
         # 6. IK — place-contact pose (descend to cylinder resting height)
         t0 = time.perf_counter()
-        self._env.ik.set_target_position(candidate.grasp_pos, candidate.grasp_quat)
+        self._env.ik.set_target_position(place_ee_pos, put_quat)
         ik_ok = self._env.ik.converge_ik(dt)
         timing["ik_place_ms"] = (time.perf_counter() - t0) * 1000
 
@@ -397,7 +463,7 @@ class ActionFeasibilityChecker:
         # 7. RRT* — descent to place-contact
         t0 = time.perf_counter()
         path = self._planner.plan_to_pose(
-            candidate.grasp_pos, candidate.grasp_quat,
+            place_ee_pos, put_quat,
             dt=dt, max_iterations=self.max_iterations,
         )
         timing["rrt_place_ms"] = (time.perf_counter() - t0) * 1000
