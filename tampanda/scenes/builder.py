@@ -36,6 +36,51 @@ _ASSETS_DIR = (
 _DEFAULT_BASE = _ASSETS_DIR / "base_panda.xml"
 
 
+# ------------------------------------------------------------------
+# Vector helpers (pure math, no numpy dependency)
+# ------------------------------------------------------------------
+
+def _normalize(v: List[float]) -> List[float]:
+    mag = math.sqrt(sum(x * x for x in v))
+    return [x / mag for x in v]
+
+
+def _cross(a: List[float], b: List[float]) -> List[float]:
+    return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+
+
+def _dot(a: List[float], b: List[float]) -> float:
+    return sum(x * y for x, y in zip(a, b))
+
+
+def _look_at_xyaxes(cam_pos: List[float], target_pos: List[float]) -> str:
+    """Return MuJoCo xyaxes string for a camera at cam_pos looking at target_pos."""
+    # Camera -Z points toward scene; Z points away
+    z = _normalize([cam_pos[i] - target_pos[i] for i in range(3)])
+    up = [0.0, 0.0, 1.0]
+    if abs(_dot(z, up)) > 0.999:
+        up = [0.0, 1.0, 0.0]
+    x = _normalize(_cross(up, z))
+    y = _normalize(_cross(z, x))
+    return " ".join(f"{v:.6f}" for v in x + y)
+
+
+def _orbit_pos(
+    target_pos: List[float], distance: float, elevation: float, azimuth: float
+) -> List[float]:
+    """Compute camera world position for an orbit-style spec (angles in degrees)."""
+    el = math.radians(elevation)
+    az = math.radians(azimuth)
+    dx = distance * math.cos(el) * math.cos(az)
+    dy = distance * math.cos(el) * math.sin(az)
+    dz = distance * math.sin(el)
+    return [target_pos[0] + dx, target_pos[1] + dy, target_pos[2] + dz]
+
+
 @dataclass
 class ObjectSpec:
     type_name: str
@@ -43,6 +88,21 @@ class ObjectSpec:
     pos: List[float]          # [x, y, z]
     quat: List[float]         # [w, x, y, z]
     rgba: Optional[List[float]] = None  # [r, g, b, a] — applied to named geoms
+
+
+@dataclass
+class CameraSpec:
+    name: str
+    fovy: float = 60.0
+    # Raw mode — direct MJCF attributes
+    pos: Optional[List[float]] = None
+    xyaxes: Optional[str] = None
+    euler: Optional[List[float]] = None
+    # Orbit mode — target is [x,y,z] coords or a body name string
+    target: Optional[Union[List[float], str]] = None
+    distance: Optional[float] = None
+    elevation: float = 30.0   # degrees below horizontal (positive = camera above target)
+    azimuth: float = 0.0      # degrees around Z axis
 
 
 def _euler_xyz_to_quat(euler_deg: List[float]) -> List[float]:
@@ -70,6 +130,7 @@ class SceneBuilder:
         self._base = Path(base) if base else _DEFAULT_BASE
         self._resources: dict[str, Union[str, dict]] = {}
         self._objects: List[ObjectSpec] = []
+        self._cameras: List[CameraSpec] = []
         self._options: dict = {}
         self._option_flags: dict = {}     # emitted as <flag k="v"/> inside <option>
         self._custom_numerics: dict = {}  # emitted as <custom><numeric name=k data=v/></custom>
@@ -131,6 +192,28 @@ class SceneBuilder:
             quat = obj.pop("quat", None)
             rgba = obj.pop("rgba", None)
             builder.add_object(type_name, pos, name=name, euler=euler, quat=quat, rgba=rgba)
+
+        for cam in desc.get("cameras", []):
+            cam = dict(cam)
+            name = cam.pop("name")
+            target = cam.pop("target", None)
+            if target is not None:
+                builder.add_camera_orbit(
+                    name,
+                    target=target,
+                    distance=cam.pop("distance"),
+                    elevation=cam.pop("elevation", 30.0),
+                    azimuth=cam.pop("azimuth", 0.0),
+                    fovy=cam.pop("fovy", 60.0),
+                )
+            else:
+                builder.add_camera(
+                    name,
+                    pos=cam.pop("pos"),
+                    fovy=cam.pop("fovy", 60.0),
+                    xyaxes=cam.pop("xyaxes", None),
+                    euler=cam.pop("euler", None),
+                )
 
         builder._options = desc.get("options", {})
         return builder
@@ -200,6 +283,96 @@ class SceneBuilder:
                 rgba=list(rgba) if rgba is not None else None,
             )
         )
+
+    def add_camera(
+        self,
+        name: str,
+        *,
+        pos: List[float],
+        fovy: float = 60.0,
+        xyaxes: Optional[str] = None,
+        euler: Optional[List[float]] = None,
+    ):
+        """Add a camera with explicit MJCF position and orientation.
+
+        Args:
+            name:    Camera name (used in MujocoCamera calls).
+            pos:     World position [x, y, z].
+            fovy:    Vertical field of view in degrees.
+            xyaxes:  MuJoCo xyaxes string "x0 x1 x2 y0 y1 y2" (mutually exclusive with euler).
+            euler:   Euler angles in degrees [rx, ry, rz] (mutually exclusive with xyaxes).
+        """
+        if xyaxes is not None and euler is not None:
+            raise ValueError("Specify either xyaxes or euler, not both.")
+        self._cameras.append(CameraSpec(name=name, pos=pos, fovy=fovy, xyaxes=xyaxes, euler=euler))
+
+    def add_camera_orbit(
+        self,
+        name: str,
+        *,
+        target: Union[List[float], str],
+        distance: float,
+        elevation: float = 30.0,
+        azimuth: float = 0.0,
+        fovy: float = 60.0,
+    ):
+        """Add a camera positioned on an orbit around a target point or body.
+
+        The camera position is computed from spherical coordinates relative to
+        the target.  When ``target`` is a body name, MuJoCo's native ``target``
+        attribute is used so the camera dynamically tracks the body.
+
+        Args:
+            name:      Camera name.
+            target:    [x, y, z] world coordinates, or the name of a scene body.
+            distance:  Distance from target in metres.
+            elevation: Degrees below horizontal (positive = camera above target,
+                       looking down).  E.g. 30 gives a 30° downward view.
+            azimuth:   Degrees around the world Z axis (0 = along +X).
+            fovy:      Vertical field of view in degrees.
+        """
+        self._cameras.append(CameraSpec(
+            name=name, fovy=fovy,
+            target=target, distance=distance,
+            elevation=elevation, azimuth=azimuth,
+        ))
+
+    def _get_object_pos(self, name: str) -> List[float]:
+        """Return the position of an object by body name."""
+        for obj in self._objects:
+            if obj.name == name:
+                return obj.pos
+        raise ValueError(
+            f"No object named {name!r} found in scene. "
+            f"Add it with add_object() before referencing it in a camera."
+        )
+
+    def _camera_to_xml_attrs(self, spec: CameraSpec) -> dict:
+        """Convert a CameraSpec to a dict of MJCF <camera> attributes."""
+        attrs: dict = {"name": spec.name, "fovy": str(spec.fovy)}
+
+        if spec.target is not None:
+            # Orbit mode
+            if isinstance(spec.target, str):
+                target_pos = self._get_object_pos(spec.target)
+                cam_pos = _orbit_pos(target_pos, spec.distance, spec.elevation, spec.azimuth)
+                attrs["pos"] = " ".join(f"{v:.6g}" for v in cam_pos)
+                attrs["target"] = spec.target  # MuJoCo tracks the body dynamically
+            else:
+                target_pos = spec.target
+                cam_pos = _orbit_pos(target_pos, spec.distance, spec.elevation, spec.azimuth)
+                attrs["pos"] = " ".join(f"{v:.6g}" for v in cam_pos)
+                attrs["xyaxes"] = _look_at_xyaxes(cam_pos, target_pos)
+        else:
+            # Raw mode
+            if spec.pos is not None:
+                attrs["pos"] = " ".join(f"{v:.6g}" for v in spec.pos)
+            if spec.xyaxes is not None:
+                attrs["xyaxes"] = spec.xyaxes
+            if spec.euler is not None:
+                attrs["euler"] = " ".join(f"{v:.6g}" for v in spec.euler)
+
+        return attrs
 
     # ------------------------------------------------------------------
     # XML generation
@@ -423,12 +596,17 @@ class SceneBuilder:
                                pos="0.5 0 0.5", quat="0 1 0 0", mocap="true")
         ET.SubElement(target, "geom", type="box", size=".05 .05 .05",
                       contype="0", conaffinity="0", rgba=".6 .3 .3 .2")
-        ET.SubElement(worldbody, "camera", name="top_camera",
-                      pos="0.4 0.4 1.5", xyaxes="1 0 0 0 1 0", fovy="60")
-        ET.SubElement(worldbody, "camera", name="side_camera",
-                      pos="1.6 0.55 0.8", euler="0 1.07 1.57", fovy="55")
-        ET.SubElement(worldbody, "camera", name="front_camera",
-                      pos="0.4 -0.4 0.7", xyaxes="1 0 0 0 0.4 0.8", fovy="60")
+        if self._cameras:
+            for cam_spec in self._cameras:
+                ET.SubElement(worldbody, "camera", **self._camera_to_xml_attrs(cam_spec))
+        else:
+            # Default cameras when none are configured
+            ET.SubElement(worldbody, "camera", name="top_camera",
+                          pos="0.4 0.4 1.5", xyaxes="1 0 0 0 1 0", fovy="60")
+            ET.SubElement(worldbody, "camera", name="side_camera",
+                          pos="1.6 0.55 0.8", euler="0 1.07 1.57", fovy="55")
+            ET.SubElement(worldbody, "camera", name="front_camera",
+                          pos="0.4 -0.4 0.7", xyaxes="1 0 0 0 0.4 0.8", fovy="60")
 
         for spec in self._objects:
             body, extra_assets = self._instantiate_object(spec)

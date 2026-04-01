@@ -479,47 +479,64 @@ class MujocoCamera:
         camera_names: List[str],
         width: Optional[int] = None,
         height: Optional[int] = None,
-        num_samples_per_camera: int = 1000,
+        total_samples_per_object: int = 2000,
         min_depth: float = 0.3,
         max_depth: float = 3.0,
         exclude_patterns: Optional[List[str]] = None
     ) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Generate and merge segmented point clouds from multiple cameras.
-        
+
+        Each camera contributes its full pixel coverage per object into a shared
+        pool. After merging, each object's cloud is downsampled to
+        ``total_samples_per_object``. This naturally weights cameras by how many
+        pixels of an object they see, matching real multi-camera behaviour.
+
         Args:
-            camera_names: List of camera names to use
-            width: Image width in pixels
-            height: Image height in pixels
-            num_samples_per_camera: Max points per object per camera
-            min_depth: Minimum depth in meters
-            max_depth: Maximum depth in meters
-            exclude_patterns: Additional patterns to exclude
-            
+            camera_names: List of camera names to use.
+            width: Image width in pixels.
+            height: Image height in pixels.
+            total_samples_per_object: Target point count per object after merging
+                                      all cameras. Cameras with more pixel coverage
+                                      contribute proportionally more points.
+            min_depth: Minimum valid depth in metres.
+            max_depth: Maximum valid depth in metres.
+            exclude_patterns: Additional body-name patterns to exclude.
+
         Returns:
             Dictionary mapping object name to (points, colors) tuple.
         """
         merged_clouds = {}
-        
+
         for cam_name in camera_names:
             try:
+                # Use total budget as per-camera upper bound so we don't
+                # artificially cap any single camera's contribution before merging.
                 clouds = self.get_segmented_pointcloud(
-                    cam_name, width, height, num_samples_per_camera,
-                    min_depth, max_depth, exclude_patterns
+                    cam_name, width, height,
+                    num_samples=total_samples_per_object,
+                    min_depth=min_depth, max_depth=max_depth,
+                    exclude_patterns=exclude_patterns,
                 )
-                
                 for obj_name, (points, colors) in clouds.items():
                     if obj_name in merged_clouds:
                         prev_pts, prev_cols = merged_clouds[obj_name]
                         merged_clouds[obj_name] = (
                             np.vstack([prev_pts, points]),
-                            np.vstack([prev_cols, colors])
+                            np.vstack([prev_cols, colors]),
                         )
                     else:
                         merged_clouds[obj_name] = (points, colors)
             except ValueError as e:
                 print(f"Warning: Skipping camera '{cam_name}': {e}")
-                    
+
+        # Downsample merged clouds to the total budget
+        for name in list(merged_clouds.keys()):
+            pts, cols = merged_clouds[name]
+            if len(pts) > total_samples_per_object:
+                indices = np.random.choice(len(pts), size=total_samples_per_object, replace=False)
+                merged_clouds[name] = (pts[indices], cols[indices])
+
         return merged_clouds
     
     def _build_object_cache(self):
