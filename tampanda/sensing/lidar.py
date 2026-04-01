@@ -159,7 +159,8 @@ class Lidar:
 
         # Rotate pre-computed local directions to world frame
         world_dirs = (rot @ self._local_dirs_flat.T).T      # (N, 3)
-        world_dirs = np.ascontiguousarray(world_dirs)
+        # mj_multiRay expects vec as a flat (N*3,) C-contiguous array
+        world_dirs_flat = np.ascontiguousarray(world_dirs.ravel())
 
         # Reset buffers
         self._dist_buf[:] = -1.0
@@ -168,7 +169,7 @@ class Lidar:
         # Batch raycast — single call for all rays
         mujoco.mj_multiRay(
             model, data,
-            pos, world_dirs,
+            pos, world_dirs_flat,
             self._geomgroup,
             1,                       # flg_static: include static geoms
             self._body_exclude_id,
