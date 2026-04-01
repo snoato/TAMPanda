@@ -39,6 +39,12 @@ class AssetRegistry:
             return self._resolve_path(source["path"])
         if src_type == "builtin":
             return (_TEMPLATES_DIR / source["name"]).resolve()
+        if src_type == "ycb":
+            from manipulation.scenes.assets.downloaders.ycb import YCBDownloader
+            return YCBDownloader().get(source["name"])
+        if src_type == "gso":
+            from manipulation.scenes.assets.downloaders.gso import GSODownloader
+            return GSODownloader().get(source["name"])
         if src_type == "url":
             raise NotImplementedError("URL sources are not yet supported")
         if src_type == "menagerie":

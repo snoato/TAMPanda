@@ -18,13 +18,14 @@ Or programmatically::
     env = builder.build_env()
 """
 
+import copy
 import json
 import math
 import os
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 import xml.etree.ElementTree as ET
 
 from manipulation.scenes.registry import AssetRegistry
@@ -204,25 +205,154 @@ class SceneBuilder:
     # XML generation
     # ------------------------------------------------------------------
 
-    def _load_template(self, source: Union[str, dict]) -> ET.Element:
-        """Parse a template file and return the single <body> element."""
+    def _load_template(self, source: Union[str, dict]) -> Tuple[ET.Element, List[ET.Element]]:
+        """Parse a template file.
+
+        Returns ``(body_element, extra_assets)`` where *extra_assets* is a
+        (possibly empty) list of ``<asset>`` child elements to be merged into
+        the scene's ``<asset>`` block.
+
+        Supports two formats:
+
+        * **Body fragment** — the existing format: a bare ``<body>`` element
+          (optionally with ``_``-prefixed child names for auto-renaming).
+          Returns an empty *extra_assets* list.
+
+        * **Full MJCF** — a complete ``<mujoco>`` document as produced by
+          downloaded YCB / GSO assets.  Asset names and cross-references are
+          namespaced by *instance name*; relative ``file=`` paths are rewritten
+          to absolute paths so the scene XML can be written anywhere.
+        """
         registry = AssetRegistry(self._registry_base)
         path = registry.resolve(source)
-        # Templates are bare <body> fragments — wrap for ET parsing
         text = path.read_text()
-        wrapper = ET.fromstring(f"<_root>{text}</_root>")
-        bodies = [c for c in wrapper if c.tag == "body"]
-        if len(bodies) != 1:
-            raise ValueError(
-                f"Template {path} must contain exactly one top-level <body> element, "
-                f"found {len(bodies)}."
-            )
-        return bodies[0]
+        stripped = text.strip()
 
-    def _instantiate_object(self, spec: ObjectSpec) -> ET.Element:
-        """Return a configured body element for the given ObjectSpec."""
-        body = self._load_template(self._resources[spec.type_name])
+        if stripped.startswith("<mujoco") or stripped.startswith("<?xml"):
+            root = ET.fromstring(text)
+            return root, path  # deferred — processed in _instantiate_object
+        else:
+            wrapper = ET.fromstring(f"<_root>{text}</_root>")
+            bodies = [c for c in wrapper if c.tag == "body"]
+            if len(bodies) != 1:
+                raise ValueError(
+                    f"Template {path} must contain exactly one top-level <body> element, "
+                    f"found {len(bodies)}."
+                )
+            return bodies[0], None  # None signals "fragment" mode
 
+    # ------------------------------------------------------------------
+    # Full-MJCF merging helpers
+    # ------------------------------------------------------------------
+
+    def _extract_from_full_mjcf(
+        self, root: ET.Element, xml_dir: Path, prefix: str
+    ) -> Tuple[ET.Element, List[ET.Element]]:
+        """Extract and namespace a body + assets from a full MJCF document.
+
+        * All asset ``name=`` attributes are prefixed with ``{prefix}_``.
+        * Relative ``file=`` paths are rewritten to absolute using the XML's
+          directory (or ``<compiler meshdir>`` when present).
+        * Cross-references (``material.texture``, ``geom.mesh``, etc.) are
+          updated to match renamed assets.
+        * A ``<freejoint>`` is injected if the body has no free joint.
+
+        Returns ``(body_element, list_of_asset_elements)``.
+        """
+        # Determine effective mesh directory
+        meshdir = xml_dir
+        compiler = root.find("compiler")
+        if compiler is not None and "meshdir" in compiler.attrib:
+            md = Path(compiler.attrib["meshdir"])
+            meshdir = md if md.is_absolute() else (xml_dir / md).resolve()
+
+        # --- Pass 1: build name_map from all named assets ---
+        name_map: dict[str, str] = {}
+        asset_elem = root.find("asset")
+        if asset_elem is not None:
+            for child in asset_elem:
+                old = child.get("name", "")
+                if old:
+                    name_map[old] = f"{prefix}_{old}"
+
+        # --- Pass 2: deep-copy + transform asset elements ---
+        transformed_assets: List[ET.Element] = []
+        if asset_elem is not None:
+            for child in asset_elem:
+                el = copy.deepcopy(child)
+                # Rewrite relative file paths to absolute
+                if "file" in el.attrib:
+                    fp = Path(el.attrib["file"])
+                    if not fp.is_absolute():
+                        el.attrib["file"] = str((meshdir / fp).resolve())
+                # Rename self
+                old = el.get("name", "")
+                if old:
+                    el.set("name", f"{prefix}_{old}")
+                # Rewrite internal cross-references (e.g. material.texture)
+                for ref_attr in ("texture", "mesh", "material"):
+                    ref = el.get(ref_attr, "")
+                    if ref in name_map:
+                        el.set(ref_attr, name_map[ref])
+                transformed_assets.append(el)
+
+        # --- Extract body from worldbody ---
+        worldbody = root.find("worldbody")
+        if worldbody is None:
+            raise ValueError("Full MJCF document has no <worldbody>")
+        body_elems = [e for e in worldbody if e.tag == "body"]
+        if not body_elems:
+            raise ValueError("Full MJCF <worldbody> contains no <body>")
+        body = copy.deepcopy(body_elems[0])
+
+        # --- Rewrite body: rename elements, update asset refs ---
+        for elem in body.iter():
+            # Update asset cross-references
+            for ref_attr in ("mesh", "material", "texture"):
+                ref = elem.get(ref_attr, "")
+                if ref in name_map:
+                    elem.set(ref_attr, name_map[ref])
+            # Prefix element names
+            old = elem.get("name", "")
+            if old:
+                elem.set("name", f"{prefix}_{old}")
+
+        # --- Inject freejoint if absent ---
+        has_free = any(
+            (c.tag == "joint" and c.get("type") == "free") or c.tag == "freejoint"
+            for c in body
+        )
+        if not has_free:
+            fj = ET.Element("freejoint")
+            fj.set("name", f"{prefix}_freejoint")
+            body.insert(0, fj)
+
+        return body, transformed_assets
+
+    # ------------------------------------------------------------------
+    # Object instantiation
+    # ------------------------------------------------------------------
+
+    def _instantiate_object(self, spec: ObjectSpec) -> Tuple[ET.Element, List[ET.Element]]:
+        """Return ``(body_element, extra_asset_elements)`` for the given spec."""
+        raw, hint = self._load_template(self._resources[spec.type_name])
+
+        # ---- Full MJCF mode (downloaded YCB / GSO objects) ----
+        if hint is not None:
+            # hint == resolved Path when full MJCF
+            xml_path: Path = hint
+            body, extra_assets = self._extract_from_full_mjcf(raw, xml_path.parent, spec.name)
+            body.set("name", spec.name)
+            body.set("pos", " ".join(f"{v:.6g}" for v in spec.pos))
+            body.set("quat", " ".join(f"{v:.6g}" for v in spec.quat))
+            if spec.rgba is not None:
+                for elem in body.iter():
+                    if elem.tag == "geom":
+                        elem.set("rgba", " ".join(f"{v:.4g}" for v in spec.rgba))
+            return body, extra_assets
+
+        # ---- Fragment mode (existing behaviour) ----
+        body = raw
         body.set("name", spec.name)
         body.set("pos", " ".join(f"{v:.6g}" for v in spec.pos))
         body.set("quat", " ".join(f"{v:.6g}" for v in spec.quat))
@@ -231,7 +361,6 @@ class SceneBuilder:
         #   "_freejoint" → "{spec.name}_freejoint"
         #   "_geom"      → "{spec.name}_geom"
         #   "_surface"   → "{spec.name}_surface"   etc.
-        # Also apply rgba override to named geoms.
         for elem in body.iter():
             if elem is body:
                 continue
@@ -241,7 +370,7 @@ class SceneBuilder:
                 if elem.tag == "geom" and spec.rgba is not None:
                     elem.set("rgba", " ".join(f"{v:.4g}" for v in spec.rgba))
 
-        return body
+        return body, []
 
     def build_xml(self) -> str:
         """Generate the full scene MJCF XML as a string.
@@ -302,7 +431,10 @@ class SceneBuilder:
                       pos="0.4 -0.4 0.7", xyaxes="1 0 0 0 0.4 0.8", fovy="60")
 
         for spec in self._objects:
-            worldbody.append(self._instantiate_object(spec))
+            body, extra_assets = self._instantiate_object(spec)
+            worldbody.append(body)
+            for elem in extra_assets:
+                asset.append(elem)
 
         ET.indent(root, space="  ")
         return ET.tostring(root, encoding="unicode")

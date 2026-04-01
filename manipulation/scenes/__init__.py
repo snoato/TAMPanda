@@ -5,6 +5,7 @@ from pathlib import Path
 from manipulation.scenes.builder import SceneBuilder
 from manipulation.scenes.registry import AssetRegistry
 from manipulation.scenes.reloader import SceneReloader
+from manipulation.scenes.assets import AssetCache, YCBDownloader, GSODownloader
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 CYLINDER_TEMPLATE        = TEMPLATES_DIR / "objects" / "cylinder.xml"
@@ -22,6 +23,9 @@ __all__ = [
     "SceneBuilder",
     "AssetRegistry",
     "SceneReloader",
+    "AssetCache",
+    "YCBDownloader",
+    "GSODownloader",
     "TEMPLATES_DIR",
     "CYLINDER_TEMPLATE",
     "CYLINDER_THIN_TEMPLATE",
