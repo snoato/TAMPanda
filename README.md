@@ -14,7 +14,8 @@ Just another wrapper for robotics manipulation built on top of [MuJoCo](https://
 - **Symbolic Planning**: Grid-based and blocks-world PDDL domains; `ActionFeasibilityChecker` for validating pick/drop with IK + RRT*
 - **Dataset Generation**: Multiprocessing-capable data generation with BFS planning, feasibility validation, and optional W&B logging
 - **Camera Support**: RGB, depth, segmentation, and pointcloud rendering via `MujocoCamera`
-- **Programmatic Scene Builder**: `SceneBuilder` assembles MJCF scenes from reusable object templates at runtime — no static XML editing. Supports per-instance position, rotation, and colour overrides; hot-reload with physics state preservation; designed for future URL/Menagerie asset sources.
+- **Programmatic Scene Builder**: `SceneBuilder` assembles MJCF scenes from reusable object templates at runtime — no static XML editing. Supports per-instance position, rotation, and colour overrides; hot-reload with physics state preservation.
+- **Remote Asset Library**: `YCBDownloader` and `GSODownloader` fetch YCB objects (`elpis-lab/ycb_dataset`) and Google Scanned Objects (`kevinzakka/mujoco_scanned_objects`) from GitHub on demand, caching them under `~/.cache/manipulation/assets/`. Full-MJCF assets (meshes, materials) are namespace-merged into scenes automatically.
 
 ## Installation
 
@@ -76,6 +77,40 @@ checker = ActionFeasibilityChecker(env, planner, StateManager(grid, env),
 feasible, _ = checker.check("pick", state, cylinder_name="cylinder_0")
 ```
 
+## Remote Assets (YCB & Google Scanned Objects)
+
+The library can download objects from two external repositories and cache them locally:
+
+| Source | Repo | Objects |
+|--------|------|---------|
+| YCB | `elpis-lab/ycb_dataset` | ~80 YCB household objects (MJCF) |
+| GSO | `kevinzakka/mujoco_scanned_objects` | ~1 030 Google Scanned Objects (CoACD hulls) |
+
+Objects are cached under `~/.cache/manipulation/assets/` (override with `MANIPULATION_ASSETS_CACHE`).
+Set `GITHUB_TOKEN` in your environment to raise the GitHub API rate limit from 60 to 5 000 requests/hour.
+
+```python
+from manipulation.scenes import SceneBuilder, YCBDownloader, GSODownloader
+
+# Programmatic download + placement
+builder = SceneBuilder()
+builder.add_resource("table",   {"type": "builtin", "name": "objects/table_symbolic.xml"})
+builder.add_resource("can",     {"type": "ycb",  "name": "002_master_chef_can"})
+builder.add_resource("clock",   {"type": "gso",  "name": "Alarm_Clock"})
+builder.add_object("table",  pos=[0.45, 0.0,  0.00])
+builder.add_object("can",    pos=[0.40, 0.0,  0.33])
+builder.add_object("clock",  pos=[0.50, 0.1,  0.33])
+env = builder.build_env(rate=200.0)
+
+# List what's available
+print(YCBDownloader().list_available())
+print(GSODownloader().list_available()[:10])
+```
+
+Downloaded assets are full MJCF documents — meshes, materials, and textures are automatically
+namespaced and path-rewritten before being merged into the scene, so multiple copies of the
+same object can coexist without name collisions.
+
 ## Examples
 
 ```bash
@@ -104,6 +139,13 @@ mjpython symbolic.py               # Grid-based PDDL planning
 python symbolic_grasping_rrt.py    # Symbolic plan executed with RRT*
 python demo_solve.py               # Headless BFS planning → full physical execution in viewer
 mjpython scene_builder.py          # Programmatic scene construction + hot-reload demo
+
+# Remote assets (YCB + Google Scanned Objects)
+mjpython object_browser.py                         # Interactive: browse, download, view objects
+mjpython object_browser.py --ycb 002_master_chef_can 003_cracker_box
+mjpython object_browser.py --gso Alarm_Clock Apple
+python  object_browser.py  --list-ycb              # Print all available YCB names (headless)
+python  object_browser.py  --list-gso              # Print all available GSO names (headless)
 
 # Benchmarks (all headless, fast)
 python benchmark_grasping.py              # GraspPlanner + RRT* on blocks
@@ -150,6 +192,7 @@ manipulation/
 ├── controllers/        # PositionController
 ├── perception/         # MujocoCamera (RGB, depth, seg, pointcloud)
 ├── scenes/             # SceneBuilder, AssetRegistry, SceneReloader, object templates
+│   └── assets/         # AssetCache, YCBDownloader, GSODownloader (remote asset system)
 ├── symbolic/
 │   └── domains/
 │       ├── tabletop/   # GridDomain, StateManager, feasibility, generate_data, env_builder
