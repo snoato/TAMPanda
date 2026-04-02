@@ -1,0 +1,8 @@
+<body pos="0 0 0">
+  <!-- Static cylindrical pillar (no freejoint — fixed in place).
+       Default: radius=0.08 m, half-height=0.35 m (0.7 m tall column).
+       Used as point obstacles in navigation scenes. -->
+  <geom name="_geom" type="cylinder" size="0.08 0.35"
+        rgba="0.75 0.40 0.25 1" contype="1" conaffinity="1"
+        mass="1000"/>
+</body>
