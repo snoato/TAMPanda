@@ -4,6 +4,7 @@ built on MuJoCo and MINK.
 """
 
 from tampanda.environments.franka_env import FrankaEnvironment
+from tampanda.environments.mobile_env import MobileEnvironment
 from tampanda.environments.assets import (
     SCENE_DEFAULT,
     SCENE_SYMBOLIC,
@@ -19,13 +20,23 @@ from tampanda.planners.robust_planner import RobustPlanner
 from tampanda.planners.grasp_planner import GraspPlanner, GraspCandidate, GraspType
 from tampanda.planners.pick_place import PickPlaceExecutor
 from tampanda.controllers.position_controller import PositionController, ControllerStatus
-from tampanda.scenes import SceneBuilder, SceneReloader
+from tampanda.controllers.diffbot_controller import DifferentialDriveController
+from tampanda.planners.astar_nav import AStarNav
+from tampanda.scenes import (
+    SceneBuilder,
+    ArmSceneBuilder,
+    MobileSceneBuilder,
+    SceneReloader,
+    PANDA_BASE_XML,
+    DIFFBOT_BASE_XML,
+)
 from tampanda.sensing import RobotSensors, Lidar
 
 __version__ = "1.0.0"
 
 __all__ = [
     "FrankaEnvironment",
+    "MobileEnvironment",
     "SCENE_DEFAULT",
     "SCENE_SYMBOLIC",
     "SCENE_BLOCKS",
@@ -42,8 +53,14 @@ __all__ = [
     "PickPlaceExecutor",
     "PositionController",
     "ControllerStatus",
+    "DifferentialDriveController",
+    "AStarNav",
     "SceneBuilder",
+    "ArmSceneBuilder",
+    "MobileSceneBuilder",
     "SceneReloader",
+    "PANDA_BASE_XML",
+    "DIFFBOT_BASE_XML",
     "RobotSensors",
     "Lidar",
 ]

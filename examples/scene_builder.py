@@ -9,14 +9,14 @@ import time
 import mujoco
 import mujoco.viewer
 
-from tampanda import FrankaEnvironment, SceneBuilder, SceneReloader
+from tampanda import FrankaEnvironment, ArmSceneBuilder, SceneReloader
 from tampanda.scenes import CYLINDER_TEMPLATE, TABLE_TEMPLATE
 
 
-def make_builder(n_cylinders: int) -> SceneBuilder:
+def make_builder(n_cylinders: int) -> ArmSceneBuilder:
     import math
 
-    b = SceneBuilder()
+    b = ArmSceneBuilder()
     b.add_resource("cylinder", CYLINDER_TEMPLATE)
     b.add_resource("table",    TABLE_TEMPLATE)
     b._options = {

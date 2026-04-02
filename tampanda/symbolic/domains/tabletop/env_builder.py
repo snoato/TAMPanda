@@ -14,7 +14,7 @@ Usage::
 """
 
 from tampanda.scenes import (
-    SceneBuilder,
+    ArmSceneBuilder,
     CYLINDER_THIN_TEMPLATE,
     CYLINDER_MEDIUM_TEMPLATE,
     CYLINDER_THICK_TEMPLATE,
@@ -44,7 +44,7 @@ _HIDE = {
 }
 
 
-def make_symbolic_builder() -> SceneBuilder:
+def make_symbolic_builder() -> ArmSceneBuilder:
     """Return a SceneBuilder configured for the tabletop symbolic domain.
 
     The generated scene is functionally equivalent to scene_symbolic.xml:
@@ -54,7 +54,7 @@ def make_symbolic_builder() -> SceneBuilder:
 
     Pass ``table_geom_name="simple_table_surface"`` when constructing GridDomain.
     """
-    b = SceneBuilder()
+    b = ArmSceneBuilder()
     b.add_resource("table_symbolic",   TABLE_SYMBOLIC_TEMPLATE)
     b.add_resource("cylinder_thin",    CYLINDER_THIN_TEMPLATE)
     b.add_resource("cylinder_medium",  CYLINDER_MEDIUM_TEMPLATE)

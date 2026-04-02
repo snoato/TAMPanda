@@ -13,7 +13,7 @@ Usage::
 """
 
 from tampanda.scenes import (
-    SceneBuilder,
+    ArmSceneBuilder,
     TABLE_SYMBOLIC_TEMPLATE,
     BLOCK_SMALL_TEMPLATE,
     BLOCK_MEDIUM_TEMPLATE,
@@ -45,7 +45,7 @@ _POOL = [
 ]
 
 
-def make_blocks_builder() -> SceneBuilder:
+def make_blocks_builder() -> ArmSceneBuilder:
     """Return a SceneBuilder configured for the blocks world domain.
 
     The generated scene is functionally equivalent to scene_blocks.xml:
@@ -54,7 +54,7 @@ def make_blocks_builder() -> SceneBuilder:
 
     Pass ``table_geom_name="simple_table_surface"`` when constructing BlocksDomain.
     """
-    b = SceneBuilder()
+    b = ArmSceneBuilder()
     b.add_resource("table_symbolic",      TABLE_SYMBOLIC_TEMPLATE)
     b.add_resource("block_small",         BLOCK_SMALL_TEMPLATE)
     b.add_resource("block_medium",        BLOCK_MEDIUM_TEMPLATE)

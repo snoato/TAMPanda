@@ -33,7 +33,16 @@ from tampanda.scenes.registry import AssetRegistry
 _ASSETS_DIR = (
     Path(__file__).parent.parent / "environments" / "assets" / "franka_emika_panda"
 )
-_DEFAULT_BASE = _ASSETS_DIR / "base_panda.xml"
+
+#: Path to the bundled Franka Panda base XML.  Pass this to
+#: :class:`SceneBuilder` when building Panda arm scenes.
+PANDA_BASE_XML = _ASSETS_DIR / "base_panda.xml"
+
+#: Path to the bundled differential-drive mobile robot base XML.  Pass this
+#: to :class:`SceneBuilder` when building navigation scenes.
+DIFFBOT_BASE_XML = (
+    Path(__file__).parent.parent / "environments" / "assets" / "diffbot" / "diffbot.xml"
+)
 
 
 # ------------------------------------------------------------------
@@ -122,12 +131,17 @@ def _euler_xyz_to_quat(euler_deg: List[float]) -> List[float]:
 class SceneBuilder:
     """Builds a MuJoCo MJCF scene from named resource templates.
 
+    Prefer the concrete subclasses :class:`ArmSceneBuilder` (Franka Panda) or
+    :class:`MobileSceneBuilder` (differential-drive robot).  Use the base class
+    directly only when you need a custom base XML and will always pass
+    ``env_class`` explicitly to :meth:`build_env`.
+
     Args:
-        base: Path to the base robot XML (default: bundled base_panda.xml).
+        base: Path to the base robot XML.
     """
 
-    def __init__(self, base: Union[str, Path, None] = None):
-        self._base = Path(base) if base else _DEFAULT_BASE
+    def __init__(self, base: Union[str, Path]):
+        self._base = Path(base)
         self._resources: dict[str, Union[str, dict]] = {}
         self._objects: List[ObjectSpec] = []
         self._cameras: List[CameraSpec] = []
@@ -174,9 +188,11 @@ class SceneBuilder:
         with open(path) as f:
             desc = json.load(f)
 
-        base = desc.get("base")
-        if base is not None:
-            base = (path.parent / base).resolve()
+        raw_base = desc.get("base")
+        if raw_base is not None:
+            base = (path.parent / raw_base).resolve()
+        else:
+            base = PANDA_BASE_XML  # backward-compatible default for JSON files
         builder = cls(base=base)
         builder._registry_base = path.parent
 
@@ -591,11 +607,7 @@ class SceneBuilder:
                       pos="0 0 1.5", dir="0 0 -1", directional="true")
         ET.SubElement(worldbody, "geom", name="floor",
                       size="0 0 0.05", type="plane", material="groundplane", contype="1")
-        # Mocap body used by MinkIK as the end-effector target
-        target = ET.SubElement(worldbody, "body", name="target",
-                               pos="0.5 0 0.5", quat="0 1 0 0", mocap="true")
-        ET.SubElement(target, "geom", type="box", size=".05 .05 .05",
-                      contype="0", conaffinity="0", rgba=".6 .3 .3 .2")
+        self._add_scene_extras(worldbody)
         if self._cameras:
             for cam_spec in self._cameras:
                 ET.SubElement(worldbody, "camera", **self._camera_to_xml_attrs(cam_spec))
@@ -618,30 +630,102 @@ class SceneBuilder:
         return ET.tostring(root, encoding="unicode")
 
     # ------------------------------------------------------------------
+    # Subclass hook
+    # ------------------------------------------------------------------
+
+    def _add_scene_extras(self, worldbody: ET.Element) -> None:
+        """Inject robot-type-specific elements into worldbody.
+
+        Called during :meth:`build_xml` after the floor geom is added.
+        Base implementation is a no-op; subclasses override as needed.
+        """
+
+    # ------------------------------------------------------------------
     # Loading into MuJoCo
     # ------------------------------------------------------------------
 
-    def build_env(self, rate: float = 200.0, collision_bodies=None):
-        """Build the scene XML and return a ready FrankaEnvironment.
+    def _default_env_class(self):
+        """Return the default environment class for this builder type.
 
-        The XML is written to a temporary file next to base_panda.xml so that
-        the ``<include>`` directive and mesh relative paths resolve correctly.
+        Subclasses override to supply their default.  The base class raises
+        so callers know they must pass ``env_class`` explicitly.
+        """
+        raise TypeError(
+            "Cannot infer env_class from the base SceneBuilder. "
+            "Use ArmSceneBuilder or MobileSceneBuilder, or pass env_class= explicitly."
+        )
+
+    def build_env(self, env_class=None, rate: float = 200.0, **kwargs):
+        """Build the scene XML and return a ready environment instance.
+
+        The XML is written to a temporary file next to the base robot XML so
+        that ``<include>`` directives and mesh relative paths resolve correctly.
         The file is deleted immediately after loading.
 
         Args:
-            rate:             Simulation rate in Hz.
-            collision_bodies: Robot body names used for collision checking.
-                              Defaults to the full Panda arm + hand.
+            env_class:  Environment class to instantiate.  Defaults to the
+                        class provided by the concrete subclass
+                        (:class:`FrankaEnvironment` for :class:`ArmSceneBuilder`,
+                        :class:`MobileEnvironment` for :class:`MobileSceneBuilder`).
+            rate:       Simulation rate in Hz.
+            **kwargs:   Extra keyword arguments forwarded to the environment
+                        constructor.
         """
-        from tampanda.environments.franka_env import FrankaEnvironment
+        if env_class is None:
+            env_class = self._default_env_class()
 
         xml = self.build_xml()
         fd, tmp_path = tempfile.mkstemp(suffix=".xml", dir=self._base.parent)
         try:
             with os.fdopen(fd, "w") as f:
                 f.write(xml)
-            env = FrankaEnvironment(tmp_path, rate=rate,
-                                    collision_bodies=collision_bodies)
+            env = env_class(tmp_path, rate=rate, **kwargs)
         finally:
             os.unlink(tmp_path)
         return env
+
+
+# ---------------------------------------------------------------------------
+# Concrete subclasses
+# ---------------------------------------------------------------------------
+
+class ArmSceneBuilder(SceneBuilder):
+    """SceneBuilder for Franka Panda arm scenes.
+
+    Adds a mocap ``target`` body used by :class:`MinkIK` as the end-effector
+    visualisation target.  Defaults to :class:`FrankaEnvironment`.
+
+    Args:
+        base: Path to the base arm XML.  Defaults to the bundled Panda model.
+    """
+
+    def __init__(self, base: Union[str, Path] = PANDA_BASE_XML):
+        super().__init__(base)
+
+    def _add_scene_extras(self, worldbody: ET.Element) -> None:
+        target = ET.SubElement(worldbody, "body", name="target",
+                               pos="0.5 0 0.5", quat="0 1 0 0", mocap="true")
+        ET.SubElement(target, "geom", type="box", size=".05 .05 .05",
+                      contype="0", conaffinity="0", rgba=".6 .3 .3 .2")
+
+    def _default_env_class(self):
+        from tampanda.environments.franka_env import FrankaEnvironment
+        return FrankaEnvironment
+
+
+class MobileSceneBuilder(SceneBuilder):
+    """SceneBuilder for differential-drive mobile robot scenes.
+
+    Defaults to :class:`MobileEnvironment`.
+
+    Args:
+        base: Path to the base mobile robot XML.  Defaults to the bundled
+              diffbot model.
+    """
+
+    def __init__(self, base: Union[str, Path] = DIFFBOT_BASE_XML):
+        super().__init__(base)
+
+    def _default_env_class(self):
+        from tampanda.environments.mobile_env import MobileEnvironment
+        return MobileEnvironment

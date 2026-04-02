@@ -2,7 +2,13 @@
 
 from pathlib import Path
 
-from tampanda.scenes.builder import SceneBuilder
+from tampanda.scenes.builder import (
+    SceneBuilder,
+    ArmSceneBuilder,
+    MobileSceneBuilder,
+    PANDA_BASE_XML,
+    DIFFBOT_BASE_XML,
+)
 from tampanda.scenes.registry import AssetRegistry
 from tampanda.scenes.reloader import SceneReloader
 from tampanda.scenes.assets import AssetCache, YCBDownloader, GSODownloader
@@ -18,9 +24,15 @@ BLOCK_SMALL_TEMPLATE        = TEMPLATES_DIR / "objects" / "block_small.xml"
 BLOCK_MEDIUM_TEMPLATE       = TEMPLATES_DIR / "objects" / "block_medium.xml"
 BLOCK_PLATFORM_TEMPLATE     = TEMPLATES_DIR / "objects" / "block_platform.xml"
 BLOCK_LARGE_PLATFORM_TEMPLATE = TEMPLATES_DIR / "objects" / "block_large_platform.xml"
+WALL_TEMPLATE                 = TEMPLATES_DIR / "objects" / "wall.xml"
+PILLAR_TEMPLATE               = TEMPLATES_DIR / "objects" / "pillar.xml"
 
 __all__ = [
     "SceneBuilder",
+    "ArmSceneBuilder",
+    "MobileSceneBuilder",
+    "PANDA_BASE_XML",
+    "DIFFBOT_BASE_XML",
     "AssetRegistry",
     "SceneReloader",
     "AssetCache",
@@ -37,4 +49,6 @@ __all__ = [
     "BLOCK_MEDIUM_TEMPLATE",
     "BLOCK_PLATFORM_TEMPLATE",
     "BLOCK_LARGE_PLATFORM_TEMPLATE",
+    "WALL_TEMPLATE",
+    "PILLAR_TEMPLATE",
 ]

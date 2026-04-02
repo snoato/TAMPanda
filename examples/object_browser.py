@@ -104,10 +104,10 @@ def _interactive_pick(downloader, source_label: str) -> list:
 # ---------------------------------------------------------------------------
 
 def _build_scene(ycb_names, gso_names):
-    from tampanda.scenes import SceneBuilder
+    from tampanda.scenes import ArmSceneBuilder
     from tampanda.scenes import TABLE_SYMBOLIC_TEMPLATE
 
-    builder = SceneBuilder()
+    builder = ArmSceneBuilder()
     builder.add_resource("table", TABLE_SYMBOLIC_TEMPLATE)
 
     # Register and add YCB objects
