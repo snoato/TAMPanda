@@ -69,6 +69,7 @@ _DEFAULT_RRT_ITERS            = 1000   # benchmarked: fastest zero-false-negativ
 _DEFAULT_IK_ITERS             = 100    # benchmarked: fastest zero-false-negative
 _DEFAULT_IK_POS_THRESH        = 0.005  # benchmarked: fastest zero-false-negative
 _DEFAULT_NUM_WORKERS          = 1
+_DEFAULT_INNER_WORKERS        = 1  # parallel collision-check workers per outer worker (1 = sequential)
 
 # No-drop planning constants
 _BFS_MAX_DEPTH         = 6   # max obstacle pick+put pairs before giving up
@@ -105,6 +106,9 @@ def _parse_args() -> argparse.Namespace:
                    help="RRT* iteration budget per planning call")
     p.add_argument("--ik-iters",            type=int,   default=_DEFAULT_IK_ITERS)
     p.add_argument("--ik-pos-thresh",       type=float, default=_DEFAULT_IK_POS_THRESH)
+    p.add_argument("--inner-workers",        type=int,   default=_DEFAULT_INNER_WORKERS,
+                        help="Parallel collision-check workers per outer worker. "
+                             "1 = sequential (default). Recommend outer×inner ≤ CPU count.")
     p.add_argument("--num-workers",         type=int,   default=_DEFAULT_NUM_WORKERS,
                    help="Parallel workers (0 = all CPUs)")
     p.add_argument("--no-viz",              action="store_true",
@@ -145,21 +149,48 @@ def _build_env(args) -> tuple:
 
     Returns:
         (env, planner, feas_planner, checker, reachable_cells,
-         grid, state_manager, grasp_planner)
+         grid, state_manager, grasp_planner, pool, xml_path)
 
+        pool:     CollisionWorkerPool if inner_workers > 1, else None.
+        xml_path: persistent XML temp file path used by the pool, else None.
         reachable_cells: frozenset[str] of cell IDs where IK converges.
     """
-    env = make_symbolic_builder().build_env(rate=200.0)
+    import os, tempfile
+    from tampanda.planners import (
+        CollisionWorkerPool, ParallelEdgeRRTStar, SpeculativeFeasibilityRRT,
+    )
+
+    inner_workers = getattr(args, "inner_workers", 1)
+
+    builder = make_symbolic_builder()
+    if inner_workers > 1:
+        # Keep XML on disk so pool worker processes can load it
+        fd, xml_path = tempfile.mkstemp(suffix=".xml",
+                                        dir=str(builder._base.parent))
+        with os.fdopen(fd, "w") as f:
+            f.write(builder.build_xml())
+        env = FrankaEnvironment(xml_path)
+    else:
+        xml_path = None
+        env = builder.build_env(rate=200.0)
+
     _patch_fast_step(env)
 
     env.ik.max_iters     = args.ik_iters
     env.ik.pos_threshold = args.ik_pos_thresh
 
-    planner = RRTStar(env)
+    if inner_workers > 1:
+        pool = CollisionWorkerPool(xml_path, n_workers=inner_workers)
+        planner = ParallelEdgeRRTStar(env, pool)
+        feas_planner = SpeculativeFeasibilityRRT(env, pool, batch_size=inner_workers)
+    else:
+        pool = None
+        planner = RRTStar(env)
+        feas_planner = FeasibilityRRT(env)
+
     planner.step_size        = 0.2
     planner.goal_sample_rate = 0.2
 
-    feas_planner = FeasibilityRRT(env)
     feas_planner.step_size             = planner.step_size
     feas_planner.collision_check_steps = planner.collision_check_steps
 
@@ -193,7 +224,7 @@ def _build_env(args) -> tuple:
     reach_map = checker.verify_reachability(verbose=False)
     reachable_cells = frozenset(c for c, ok in reach_map.items() if ok)
 
-    return env, planner, feas_planner, checker, reachable_cells, grid, state_manager, grasp_planner
+    return env, planner, feas_planner, checker, reachable_cells, grid, state_manager, grasp_planner, pool, xml_path
 
 
 # ---------------------------------------------------------------------------
@@ -2001,7 +2032,7 @@ def _worker(worker_id: int, split: str, start_idx: int, count: int,
     np.random.seed(seed)
 
     (env, planner, feas_planner, checker, reachable_cells,
-     grid, state_manager, grasp_planner) = _build_env(args)
+     grid, state_manager, grasp_planner, pool, xml_path) = _build_env(args)
 
     output_base = Path(args.output_dir)
     problem_dir = output_base / split
@@ -2119,6 +2150,11 @@ def _worker(worker_id: int, split: str, start_idx: int, count: int,
                   f"plan_len={len(plan)}  elapsed={elapsed:.0f}s")
 
     env.close()
+    if pool is not None:
+        pool.shutdown()
+    if xml_path is not None:
+        import os as _os
+        _os.unlink(xml_path)
     result_queue.put({
         "worker_id": worker_id,
         "split":     split,
@@ -2244,7 +2280,7 @@ def main() -> None:
                 all_stats.append(s)
     else:
         (env, planner, feas_planner, checker, reachable_cells,
-         grid, state_manager, grasp_planner) = _build_env(args)
+         grid, state_manager, grasp_planner, pool, xml_path) = _build_env(args)
 
         info = grid.get_grid_info()
         print(f"\n  Grid: {info['grid_dimensions'][0]}×{info['grid_dimensions'][1]} cells  "
@@ -2268,6 +2304,11 @@ def main() -> None:
             all_stats.append(s)
 
         env.close()
+        if pool is not None:
+            pool.shutdown()
+        if xml_path is not None:
+            import os as _os
+            _os.unlink(xml_path)
 
     wall = time.time() - t_total
     total = args.num_train + args.num_test + args.num_val
