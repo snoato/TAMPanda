@@ -1,11 +1,16 @@
-"""Base environment class for robot manipulation."""
+"""Base environment class for robot environments."""
 
 from abc import ABC, abstractmethod
 import numpy as np
 
 
 class BaseEnvironment(ABC):
-    """Abstract base class for robot environments."""
+    """Abstract base class for all robot environments.
+
+    Defines the minimal interface shared across arm and mobile robots:
+    model/data access, simulation stepping, collision checking, and
+    basic object queries.
+    """
 
     @abstractmethod
     def get_model(self):
@@ -15,11 +20,6 @@ class BaseEnvironment(ABC):
     @abstractmethod
     def get_data(self):
         """Return the MuJoCo data."""
-        pass
-
-    @abstractmethod
-    def get_ik(self):
-        """Return the inverse kinematics solver."""
         pass
 
     @abstractmethod
@@ -39,24 +39,33 @@ class BaseEnvironment(ABC):
 
     @abstractmethod
     def is_collision_free(self, configuration: np.ndarray) -> bool:
-        """Check if a configuration is collision-free."""
-        pass
+        """Check if a configuration is collision-free.
 
-    @abstractmethod
-    def get_object_position(self, object_name: str) -> np.ndarray:
-        """Get the position of an object in the scene."""
-        pass
-
-    @abstractmethod
-    def get_object_orientation(self, object_name: str) -> np.ndarray:
-        """Get the orientation of an object in the scene."""
-        pass
-
-    def gravity_compensated_target(self, goal_q: np.ndarray) -> np.ndarray:
-        """Return a ctrl target adjusted for gravity-induced steady-state error.
-
-        The default implementation is a no-op (returns goal_q unchanged).
-        Subclasses for specific robots should override this with an empirically
-        calibrated implementation.
+        The configuration space depends on the robot type:
+        arm environments take a joint configuration vector,
+        mobile environments take an [x, y, theta] SE(2) pose.
         """
-        return goal_q
+        pass
+
+    def get_object_id(self, object_name: str) -> int:
+        """Return the MuJoCo body ID for a named object."""
+        import mujoco
+        oid = mujoco.mj_name2id(
+            self.get_model(), mujoco.mjtObj.mjOBJ_BODY, object_name
+        )
+        if oid == -1:
+            raise ValueError(f"Object '{object_name}' not found in model.")
+        return oid
+
+    def get_object_position(self, object_name: str) -> np.ndarray:
+        """Get the world-frame position of a named body."""
+        return self.get_data().xpos[self.get_object_id(object_name)].copy()
+
+    def get_object_orientation(self, object_name: str) -> np.ndarray:
+        """Get the world-frame quaternion [w,x,y,z] of a named body."""
+        return self.get_data().xquat[self.get_object_id(object_name)].copy()
+
+    def forward(self):
+        """Run mj_forward to update all derived quantities."""
+        import mujoco
+        mujoco.mj_forward(self.get_model(), self.get_data())

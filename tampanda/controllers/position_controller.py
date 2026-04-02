@@ -3,10 +3,11 @@
 import numpy as np
 from typing import List, Optional
 
-from tampanda.core.base_controller import BaseController, ControllerStatus
+from tampanda.core.robot_arm_controller import RobotArmController
+from tampanda.core.base_controller import ControllerStatus
 
 
-class PositionController(BaseController):
+class PositionController(RobotArmController):
     """Position-based controller for robot manipulation."""
 
     @staticmethod
@@ -143,5 +144,3 @@ class PositionController(BaseController):
         self.trajectory = trajectory
         self._waypoints = waypoints if waypoints is not None else []
 
-    def velocity_control(self, target_velocity: np.ndarray, duration: float, dt: float):
-        pass

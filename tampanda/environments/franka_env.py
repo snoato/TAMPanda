@@ -8,7 +8,7 @@ except ImportError:
 import numpy as np
 from typing import Optional, List, Tuple
 
-from tampanda.core.base_env import BaseEnvironment
+from tampanda.core.robot_arm_env import RobotArmEnvironment
 from tampanda.ik.mink_ik import MinkIK
 from tampanda.controllers.position_controller import PositionController, ControllerStatus
 from tampanda.utils.rate_limiter import RateLimiter
@@ -45,7 +45,7 @@ def _mat2quat(mat: np.ndarray) -> np.ndarray:
                      (mat[1, 2] + mat[2, 1]) / s, 0.25 * s])
 
 
-class FrankaEnvironment(BaseEnvironment):
+class FrankaEnvironment(RobotArmEnvironment):
     """Environment for Franka Emika Panda robot simulation."""
 
     def __init__(self, path: str, rate: float = 200.0, collision_bodies: Optional[List[str]] = None):
@@ -266,20 +266,6 @@ class FrankaEnvironment(BaseEnvironment):
         
         return result
 
-    def get_object_id(self, object_name: str) -> int:
-        object_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, object_name)
-        if object_id == -1:
-            raise ValueError(f"Object '{object_name}' not found in the model.")
-        return object_id
-
-    def get_object_position(self, object_name: str) -> np.ndarray:
-        object_id = self.get_object_id(object_name)
-        return self.data.xpos[object_id].copy()
-
-    def get_object_orientation(self, object_name: str) -> np.ndarray:
-        object_id = self.get_object_id(object_name)
-        return self.data.xquat[object_id].copy()
-
     def get_object_half_size(self, body_name: str) -> np.ndarray:
         """Return half-extents [hx, hy, hz] for the first geom of a body.
 
@@ -376,10 +362,6 @@ class FrankaEnvironment(BaseEnvironment):
     def reset_velocities(self):
         """Zero out all velocities in the scene."""
         self.data.qvel[:] = 0
-    
-    def forward(self):
-        """Forward kinematics to update derived quantities."""
-        mujoco.mj_forward(self.model, self.data)
     
     def execute_path(self, path, planner, step_size: float = 0.05):
         """Smooth, interpolate, and execute a planned path with gravity compensation.

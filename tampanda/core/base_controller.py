@@ -1,8 +1,6 @@
 """Base controller class."""
 
 from abc import ABC, abstractmethod
-from typing import List
-import numpy as np
 import enum
 
 
@@ -15,21 +13,14 @@ class ControllerStatus(enum.Enum):
 
 
 class BaseController(ABC):
-    """Abstract base class for robot controllers."""
+    """Abstract base class for all robot controllers.
+
+    Defines the minimal interface shared across arm and mobile controllers.
+    """
 
     @abstractmethod
     def step(self):
         """Execute one control step."""
-        pass
-
-    @abstractmethod
-    def move_to(self, configuration: np.ndarray):
-        """Move to a target configuration."""
-        pass
-
-    @abstractmethod
-    def follow_trajectory(self, trajectory: List[np.ndarray]):
-        """Follow a trajectory of configurations."""
         pass
 
     @abstractmethod
@@ -40,14 +31,4 @@ class BaseController(ABC):
     @abstractmethod
     def stop(self):
         """Stop the controller."""
-        pass
-
-    @abstractmethod
-    def open_gripper(self):
-        """Open the gripper."""
-        pass
-
-    @abstractmethod
-    def close_gripper(self):
-        """Close the gripper."""
         pass
