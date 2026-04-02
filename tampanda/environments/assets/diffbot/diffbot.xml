@@ -1,0 +1,98 @@
+<mujoco model="diffbot">
+  <!--
+    Simple differential-drive mobile robot (diffbot).
+
+    Physical layout
+    ───────────────
+    base_link freejoint at z = 0.095 (wheel-axle height above floor).
+
+    Wheel radius  : 0.060 m → wheel centre world z = 0.095 − 0.035 = 0.060 ✓
+    Caster radius : 0.020 m → caster centre world z = 0.095 − 0.075 = 0.020 ✓
+    Chassis       : 35 × 26 × 9 cm box, bottom at world z = 0.050 (clear of floor)
+
+    Sensors
+    ───────
+    IMU (accelerometer + gyro) at chassis centre → site "imu_site"
+    Lidar mount site on top of chassis           → site "lidar_site"
+
+    Actuators (velocity-controlled)
+    ────────────────────────────────
+    ctrl[0] = left_wheel_vel  (rad/s)
+    ctrl[1] = right_wheel_vel (rad/s)
+  -->
+  <compiler angle="degree"/>
+
+  <default>
+    <geom condim="3" friction="0.8 0.1 0.01"/>
+    <joint armature="0.01"/>
+  </default>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.095">
+      <freejoint name="base_freejoint"/>
+
+      <!-- IMU site at chassis centre -->
+      <site name="imu_site" pos="0 0 0" size="0.005"/>
+
+      <!-- Lidar mount site on top of chassis (z = chassis_half + small_offset) -->
+      <site name="lidar_site" pos="0 0 0.065" size="0.01" rgba="1 0 0 1"/>
+
+      <!-- Chassis -->
+      <geom name="chassis" type="box" size="0.175 0.13 0.045"
+            mass="5.0" rgba="0.28 0.40 0.80 1"/>
+
+      <!-- Left drive wheel -->
+      <body name="left_wheel" pos="0 0.155 -0.035">
+        <joint name="left_wheel_joint" type="hinge" axis="0 1 0" damping="0.1"/>
+        <geom name="left_wheel_geom" type="cylinder" size="0.06 0.025"
+              euler="90 0 0" mass="0.5" rgba="0.12 0.12 0.12 1"
+              friction="1.5 0.01 0.001"/>
+      </body>
+
+      <!-- Right drive wheel -->
+      <body name="right_wheel" pos="0 -0.155 -0.035">
+        <joint name="right_wheel_joint" type="hinge" axis="0 1 0" damping="0.1"/>
+        <geom name="right_wheel_geom" type="cylinder" size="0.06 0.025"
+              euler="90 0 0" mass="0.5" rgba="0.12 0.12 0.12 1"
+              friction="1.5 0.01 0.001"/>
+      </body>
+
+      <!-- Front passive caster -->
+      <body name="caster_front" pos="0.14 0 -0.075">
+        <joint name="caster_front_joint" type="ball" damping="0.01"/>
+        <geom name="caster_front_geom" type="sphere" size="0.02"
+              mass="0.1" rgba="0.55 0.55 0.55 1"
+              friction="0.01 0.001 0.0001"/>
+      </body>
+
+      <!-- Rear passive caster -->
+      <body name="caster_rear" pos="-0.14 0 -0.075">
+        <joint name="caster_rear_joint" type="ball" damping="0.01"/>
+        <geom name="caster_rear_geom" type="sphere" size="0.02"
+              mass="0.1" rgba="0.55 0.55 0.55 1"
+              friction="0.01 0.001 0.0001"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <!--
+    Velocity actuators: ctrl[i] = desired wheel angular velocity (rad/s).
+
+    kv gain is kept intentionally low (2 N·m·s/rad) so that the PD torque
+    stays small relative to the wheel inertia and the default timestep.
+    forcerange provides a hard safety cap to prevent blow-up during fast
+    transients.  For higher responsiveness, tighten the timestep instead.
+  -->
+  <actuator>
+    <velocity name="left_wheel_vel"  joint="left_wheel_joint"
+              kv="5" forcelimited="true" forcerange="-15 15"/>
+    <velocity name="right_wheel_vel" joint="right_wheel_joint"
+              kv="5" forcelimited="true" forcerange="-15 15"/>
+  </actuator>
+
+  <!-- IMU sensors at imu_site -->
+  <sensor>
+    <accelerometer name="imu_accel" site="imu_site"/>
+    <gyro          name="imu_gyro"  site="imu_site"/>
+  </sensor>
+</mujoco>
