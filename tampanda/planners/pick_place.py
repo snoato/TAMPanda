@@ -92,6 +92,7 @@ class PickPlaceExecutor:
         self._ee_site_id = mujoco.mj_name2id(
             env.model, mujoco.mjtObj.mjOBJ_SITE, "attachment_site"
         )
+        self._last_grasp_quat: Optional[np.ndarray] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -103,6 +104,7 @@ class PickPlaceExecutor:
         block_pos: np.ndarray,
         half_size: np.ndarray,
         block_quat: np.ndarray,
+        candidates=None,
     ) -> bool:
         """Execute a full grasping sequence for the named block.
 
@@ -114,11 +116,17 @@ class PickPlaceExecutor:
           5. Optionally attach block to EE kinematically
           6. Execute lift
 
+        Args:
+            candidates: Optional list of GraspCandidate to try instead of
+                generating them from the GraspPlanner.  Useful for forcing a
+                specific grasp type (e.g. FRONT only).
+
         Returns True on success, False if all candidates were exhausted.
         """
-        candidates = self.grasp_planner.generate_candidates(
-            block_pos, half_size, block_quat
-        )
+        if candidates is None:
+            candidates = self.grasp_planner.generate_candidates(
+                block_pos, half_size, block_quat
+            )
         if not candidates:
             print(f"[PickPlaceExecutor] No grasp candidates for {block_name}")
             return False
@@ -171,12 +179,16 @@ class PickPlaceExecutor:
                 dt=0.005, max_iterations=self.max_plan_iters,
             )
             if path is None:
-                print("  lift plan failed — pick aborted")
+                print("  lift plan failed — next candidate")
                 self.env.detach_object()
-                return False
+                self.env.remove_collision_exception(block_name)
+                self.env.controller.open_gripper()
+                self._wait_gripper_open()
+                continue
             self.env.execute_path(path, self.planner, step_size=self.lift_step_size)
             self.env.wait_idle(settle_steps=self.settle_steps)
 
+            self._last_grasp_quat = cand.grasp_quat.copy()
             print(f"  pick SUCCESS")
             return True
 
@@ -187,7 +199,7 @@ class PickPlaceExecutor:
         self,
         block_name: str,
         place_block_center: np.ndarray,
-        ee_quat: np.ndarray,
+        ee_quat: Optional[np.ndarray] = None,
         target_block_name: Optional[str] = None,
         approach_height: float = 0.15,
         place_clearance: float = 0.003,
@@ -218,6 +230,13 @@ class PickPlaceExecutor:
 
         Returns True on success.
         """
+        if ee_quat is None:
+            if self._last_grasp_quat is None:
+                raise ValueError(
+                    "ee_quat must be provided if no prior pick has been executed"
+                )
+            ee_quat = self._last_grasp_quat
+
         # EE position when block centre is at place_block_center + clearance
         ee_place = place_block_center.copy()
         ee_place[2] += GRASP_CONTACT_OFFSET + place_clearance
