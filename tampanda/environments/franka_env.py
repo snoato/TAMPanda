@@ -48,6 +48,8 @@ def _mat2quat(mat: np.ndarray) -> np.ndarray:
 class FrankaEnvironment(RobotArmEnvironment):
     """Environment for Franka Emika Panda robot simulation."""
 
+    HOME_QPOS = np.array([0.0, 0.0, 0.0, -1.57079, 0.0, 1.57079, -0.7853, 0.04, 0.04])
+
     def __init__(self, path: str, rate: float = 200.0, collision_bodies: Optional[List[str]] = None):
         self.model = mujoco.MjModel.from_xml_path(path)
         self.data = mujoco.MjData(self.model)
@@ -93,8 +95,8 @@ class FrankaEnvironment(RobotArmEnvironment):
                 self.model.geom_conaffinity[geom_id] = 1
                 self.model.geom_margin[geom_id] = _ARM_COLLISION_MARGIN
 
-        # Set initial position
-        self.data.qpos[:8] = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853, 0.04])
+        # Set initial position (7 arm joints + 2 finger joints)
+        self.data.qpos[:9] = self.HOME_QPOS
         self.data.ctrl[:8] = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853, 255])
         self.ik.update_configuration(self.data.qpos)
         self.initial_ctrl = self.data.ctrl.copy()
@@ -147,16 +149,21 @@ class FrankaEnvironment(RobotArmEnvironment):
         self._attached = None
         self.sim_time = 0.0
 
+    def reset_arm_to_home(self):
+        """Reset only the arm joints to the home configuration, leaving object poses unchanged."""
+        self.data.qpos[:9] = self.HOME_QPOS
+        self.data.qvel[:9] = 0.0
+        self.ik.update_configuration(self.data.qpos)
+        mujoco.mj_forward(self.model, self.data)
+
     def step(self):
         if self._attached is not None:
             self._apply_attachment()
         mujoco.mj_step(self.model, self.data)
-        dt = self.rate.dt
-        self.sim_time += dt
+        self.sim_time += self.rate.dt
         if self.viewer is not None:
             self.viewer.sync()
         self.rate.sleep()
-        return dt
 
     def rest(self, duration: float):
         steps = int(duration / self.rate.dt)
@@ -267,24 +274,61 @@ class FrankaEnvironment(RobotArmEnvironment):
         return result
 
     def get_object_half_size(self, body_name: str) -> np.ndarray:
-        """Return half-extents [hx, hy, hz] for the first geom of a body.
+        """Return half-extents [hx, hy, hz] for a named body.
 
-        Works for box, cylinder, capsule, and sphere geoms.  For cylinders/
-        capsules the radial dimension is used for both X and Y.
+        For primitive geoms (box, cylinder, capsule, sphere) the first geom's
+        analytic size is returned.  For mesh geoms the AABB is computed from
+        mesh vertices.  Visual-only geoms (contype=0, conaffinity=0) are
+        skipped so that mesh objects with detailed visual meshes (e.g. YCB
+        objects) are measured from their collision geometry, not the visual one.
+        All collision mesh AABBs for the body are unioned before returning.
         """
         body_id = self.get_object_id(body_name)
+
+        # First pass: primitives and collision meshes (skip visual-only geoms).
+        mesh_aabb_min = None
+        mesh_aabb_max = None
+        for geom_id in range(self.model.ngeom):
+            if self.model.geom_bodyid[geom_id] != body_id:
+                continue
+            # Skip purely visual geoms (no collision contribution).
+            if (self.model.geom_contype[geom_id] == 0 and
+                    self.model.geom_conaffinity[geom_id] == 0):
+                continue
+            gtype = self.model.geom_type[geom_id]
+            size  = self.model.geom_size[geom_id]
+            if gtype == mujoco.mjtGeom.mjGEOM_BOX:
+                return size[:3].copy()
+            elif gtype in (mujoco.mjtGeom.mjGEOM_CYLINDER,
+                           mujoco.mjtGeom.mjGEOM_CAPSULE):
+                return np.array([size[0], size[0], size[1]])
+            elif gtype == mujoco.mjtGeom.mjGEOM_SPHERE:
+                return np.array([size[0], size[0], size[0]])
+            elif gtype == mujoco.mjtGeom.mjGEOM_MESH:
+                mesh_id    = self.model.geom_dataid[geom_id]
+                vert_start = self.model.mesh_vertadr[mesh_id]
+                vert_count = self.model.mesh_vertnum[mesh_id]
+                verts = self.model.mesh_vert[vert_start: vert_start + vert_count]
+                lo, hi = verts.min(axis=0), verts.max(axis=0)
+                mesh_aabb_min = lo if mesh_aabb_min is None else np.minimum(mesh_aabb_min, lo)
+                mesh_aabb_max = hi if mesh_aabb_max is None else np.maximum(mesh_aabb_max, hi)
+
+        if mesh_aabb_min is not None:
+            return ((mesh_aabb_max - mesh_aabb_min) / 2.0).astype(float)
+
+        # Fallback: accept visual-only geoms (e.g. display objects with no collision).
         for geom_id in range(self.model.ngeom):
             if self.model.geom_bodyid[geom_id] != body_id:
                 continue
             gtype = self.model.geom_type[geom_id]
             size  = self.model.geom_size[geom_id]
-            if gtype == mujoco.mjtGeom.mjGEOM_BOX:
-                return size.copy()
-            elif gtype in (mujoco.mjtGeom.mjGEOM_CYLINDER,
-                           mujoco.mjtGeom.mjGEOM_CAPSULE):
-                return np.array([size[0], size[0], size[1]])
-            else:  # sphere or other — treat all dims as size[0]
-                return np.array([size[0], size[0], size[0]])
+            if gtype == mujoco.mjtGeom.mjGEOM_MESH:
+                mesh_id    = self.model.geom_dataid[geom_id]
+                vert_start = self.model.mesh_vertadr[mesh_id]
+                vert_count = self.model.mesh_vertnum[mesh_id]
+                verts = self.model.mesh_vert[vert_start: vert_start + vert_count]
+                return ((verts.max(axis=0) - verts.min(axis=0)) / 2.0).astype(float)
+
         raise ValueError(f"No geom found for body '{body_name}'")
 
     def get_approach_pose(

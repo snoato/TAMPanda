@@ -245,9 +245,9 @@ class ActionFeasibilityChecker:
 
         # 7. IK — transport pose (seed from HOME, same as execution)
         t0 = time.perf_counter()
-        home_qpos = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853, 0.04])
+        from tampanda.environments.franka_env import FrankaEnvironment
         home_full = self._env.data.qpos.copy()
-        home_full[:8] = home_qpos
+        home_full[:9] = FrankaEnvironment.HOME_QPOS
         self._env.ik.update_configuration(home_full)
         transport_pos, transport_quat = self._state_manager.get_transport_pose()
         self._env.ik.set_target_position(transport_pos, transport_quat)
