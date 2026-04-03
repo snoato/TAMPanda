@@ -58,6 +58,7 @@ def main():
         target    = None
         candidate = None
 
+        dt = env.rate.dt
         while viewer.is_running():
             if target is None and len(targets) == 0:
                 state_manager.sample_random_state(n_cylinders=3)

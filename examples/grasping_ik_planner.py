@@ -54,6 +54,7 @@ def main():
         target    = None
         candidate = None
 
+        dt = env.rate.dt
         while viewer.is_running():
             if target is None and len(targets) == 0:
                 state_manager.sample_random_state(n_cylinders=3)
@@ -64,7 +65,7 @@ def main():
                 env.rest(2.0)
                 targets = sorted(state_manager.ground_state()["cylinders"].keys())
 
-            dt = env.step()
+            env.step()
 
             if env.sim_time > 0.0 and target is None and len(targets) > 0:
                 target     = targets[0]

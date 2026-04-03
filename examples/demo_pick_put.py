@@ -105,9 +105,10 @@ def main():
     place_ee_pos     = None   # EE position that lands cylinder exactly on cell centre
     put_quat         = None   # EE orientation for put
 
+    dt = env.rate.dt
     with env.launch_viewer() as viewer:
         while viewer.is_running():
-            dt = env.step()
+            env.step()
             env.controller.step(delta=_CTRL_DELTA)
 
             if env.controller.get_status() != ControllerStatus.IDLE:
