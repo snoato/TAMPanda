@@ -12,7 +12,7 @@
 
 **Planning** — IK via [MINK](https://github.com/kevinzakka/mink); RRT\* with path smoothing; geometry-aware grasp candidate ranking; A\* navigation with occupancy-grid obstacle inflation
 
-**Manipulation** — `PickPlaceExecutor` for end-to-end pick-and-place with multi-candidate retry and kinematic object attachment
+**Manipulation** — `PickPlaceExecutor` for end-to-end pick-and-place with multi-candidate retry and kinematic object attachment; `PointCloudGraspPlanner` for rudimentary grasp pose computation on unseen objects from segmented point clouds (WIP)
 
 **Symbolic Planning** — grid-based tabletop and blocks-world PDDL domains; `ActionFeasibilityChecker` validates symbolic actions against the continuous planner; parallel dataset generation with BFS and optional W&B logging
 
@@ -108,7 +108,7 @@ The tabletop domain connects PDDL task planning to the continuous planner: symbo
 - `camera_headless.py`, `pointcloud_demo.py` — RGB and pointcloud capture
 - `object_browser.py` — browse, download, and preview YCB / Google Scanned Objects
 
-**Benchmarks** (all headless) — `benchmark_grasping.py`, `benchmark_cylinder_grasping.py`, `benchmark_feasibility.py`, `benchmark_feasibility_params.py`, `benchmark_parallel_rrt.py`
+**Benchmarks** (all headless) — `benchmark_grasping.py`, `benchmark_cylinder_grasping.py`, `benchmark_feasibility.py`, `benchmark_feasibility_params.py`, `benchmark_parallel_rrt.py`, `benchmark_ycb_grasp.py`
 
 ## Citation
 
