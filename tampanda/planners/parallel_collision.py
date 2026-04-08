@@ -27,6 +27,11 @@ _scene_held     = None            # cached _collision_held_body dict
 _scene_exc      = None            # cached _collision_exception_ids set
 
 
+def _noop(_) -> None:
+    """No-op used as a barrier to confirm a worker has finished its initializer."""
+    pass
+
+
 def _make_binary_order(steps: int) -> np.ndarray:
     """Indices 1..steps in binary-subdivision order (index 0 excluded)."""
     order: list[int] = []
@@ -125,6 +130,11 @@ class CollisionWorkerPool:
             initializer=_worker_init,
             initargs=(xml_path, collision_check_steps),
         )
+        # Barrier: block until every worker has completed _worker_init.
+        # ctx.Pool() returns before initializers finish, so without this,
+        # set_scene() tasks can land on workers still spinning up and leave
+        # others with _scene_exc = None.
+        self._pool.map(_noop, range(n_workers), chunksize=1)
         self.n_workers = n_workers
         self.collision_check_steps = collision_check_steps
 
