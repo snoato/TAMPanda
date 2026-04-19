@@ -14,7 +14,7 @@
 
 **Manipulation** — `PickPlaceExecutor` for end-to-end pick-and-place with multi-candidate retry and kinematic object attachment; `PointCloudGraspPlanner` for rudimentary grasp pose computation on unseen objects from segmented point clouds (WIP)
 
-**Symbolic Planning** — grid-based tabletop and blocks-world PDDL domains; `ActionFeasibilityChecker` validates symbolic actions against the continuous planner; parallel dataset generation with BFS and optional W&B logging
+**Symbolic Planning** — `DomainBridge` connects any PDDL domain to the continuous stack: register Python callables as predicate evaluators or action-tracked fluents, map PDDL actions to executors, and call `ground_state`, `plan`, and `execute_action` without domain-specific glue code; built-in tabletop (grid-based) and blocks-world domains; `ActionFeasibilityChecker` validates symbolic actions against the continuous planner before committing; parallel dataset generation with BFS and optional W&B logging
 
 **Scene & Assets** — `SceneBuilder` assembles scenes from reusable MJCF templates at runtime with hot-reload; `YCBDownloader` / `GSODownloader` fetch ~80 YCB objects and ~1 030 Google Scanned Objects on demand; `MujocoCamera` for RGB, depth, segmentation, and pointcloud rendering
 
@@ -79,7 +79,7 @@ with env.launch_viewer() as viewer:
         env.step()
 ```
 
-For interactive walkthroughs see [`notebooks/franka_getting_started.ipynb`](notebooks/franka_getting_started.ipynb) and [`notebooks/mobile_getting_started.ipynb`](notebooks/mobile_getting_started.ipynb).
+For interactive walkthroughs see [`notebooks/franka_getting_started.ipynb`](notebooks/franka_getting_started.ipynb), [`notebooks/mobile_getting_started.ipynb`](notebooks/mobile_getting_started.ipynb), and [`notebooks/domain_bridge_getting_started.ipynb`](notebooks/domain_bridge_getting_started.ipynb).
 
 ## Examples
 
@@ -93,7 +93,7 @@ All examples are in `examples/`. On macOS, use `mjpython` for anything that open
 
 **Arm — symbolic planning (TAMP)**
 
-The tabletop domain connects PDDL task planning to the continuous planner: symbolic actions (pick, put) are validated with IK + RRT\* before being committed to the plan. `demo_pick_put.py` runs the full loop end-to-end.
+The tabletop domain connects PDDL task planning to the continuous planner: symbolic actions (pick, put) are validated with IK + RRT\* before being committed to the plan. `demo_pick_put.py` runs the full loop end-to-end. `DomainBridge` provides a domain-agnostic version of the same pipeline — see the [notebook](notebooks/domain_bridge_getting_started.ipynb) for a walkthrough.
 
 - `symbolic.py` — grid-based PDDL planning in viewer
 - `tabletop_interactive.py` — real-time state grounding and interactive tabletop

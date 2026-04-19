@@ -32,6 +32,7 @@ from tampanda.scenes import (
     DIFFBOT_BASE_XML,
 )
 from tampanda.sensing import RobotSensors, Lidar
+from tampanda.tamp import DomainBridge
 
 __version__ = "1.0.0"
 
@@ -65,4 +66,5 @@ __all__ = [
     "DIFFBOT_BASE_XML",
     "RobotSensors",
     "Lidar",
+    "DomainBridge",
 ]
