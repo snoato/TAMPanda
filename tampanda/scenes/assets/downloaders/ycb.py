@@ -9,7 +9,6 @@ from tampanda.scenes.assets.downloaders.base import BaseDownloader, _download_fi
 # Repo layout: elpis-lab/ycb_dataset/ycb/<object_name>/
 _OBJECTS_SUBDIR = "ycb"
 
-
 class YCBDownloader(BaseDownloader):
     """Downloads YCB objects from ``elpis-lab/ycb_dataset`` on GitHub.
 
@@ -96,6 +95,7 @@ class YCBDownloader(BaseDownloader):
 
         worldbody = ET.SubElement(root, "worldbody")
         body = ET.SubElement(worldbody, "body", name=name)
+        ET.SubElement(body, "joint", type="free", damping="0.1",frictionloss="0.15")
 
         if has_visual:
             geom_kw = dict(type="mesh", mesh="visual", contype="0", conaffinity="0")
@@ -104,7 +104,9 @@ class YCBDownloader(BaseDownloader):
             ET.SubElement(body, "geom", **geom_kw)
 
         for i in range(len(col_meshes)):
-            ET.SubElement(body, "geom", type="mesh", mesh=f"col_{i}", group="3")
+            # density lets MuJoCo compute inertia from actual mesh volume
+            ET.SubElement(body, "geom", type="mesh", mesh=f"col_{i}",
+                          group="3")
 
         if not has_visual and not col_meshes:
             # Fallback: tiny sphere so the body isn't empty
