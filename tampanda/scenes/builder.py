@@ -16,6 +16,13 @@ Or programmatically::
     builder.add_object("cylinder", pos=[0.4, 0.0, 0.42], rgba=[1, 0.2, 0.2, 1])
     builder.add_object("cylinder", pos=[0.5, 0.1, 0.42], euler=[0, 0, 45])
     env = builder.build_env()
+
+Objects can be placed relative to another named object using ``relative_to``.
+The offset ``pos`` is interpreted in the anchor's local frame (rotated by its
+orientation) and the rotations are composed::
+
+    builder.add_object("table", name="table", pos=[0.5, 0.0, 0.0])
+    builder.add_object("cylinder", pos=[0.0, 0.0, 0.45], relative_to="table")
 """
 
 import copy
@@ -66,6 +73,26 @@ def _dot(a: List[float], b: List[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
+def _quat_mul(q1: List[float], q2: List[float]) -> List[float]:
+    """Multiply two quaternions [w, x, y, z]."""
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
+    return [
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2,
+    ]
+
+
+def _quat_rotate(q: List[float], v: List[float]) -> List[float]:
+    """Rotate vector v by quaternion q [w, x, y, z] using Rodrigues' formula."""
+    u = q[1:]          # vector part
+    t = _cross(u, v)   # u × v
+    s = _cross(u, t)   # u × (u × v)
+    return [v[i] + 2 * q[0] * t[i] + 2 * s[i] for i in range(3)]
+
+
 def _look_at_xyaxes(cam_pos: List[float], target_pos: List[float]) -> str:
     """Return MuJoCo xyaxes string for a camera at cam_pos looking at target_pos."""
     # Camera -Z points toward scene; Z points away
@@ -94,9 +121,10 @@ def _orbit_pos(
 class ObjectSpec:
     type_name: str
     name: str
-    pos: List[float]          # [x, y, z]
-    quat: List[float]         # [w, x, y, z]
+    pos: List[float]                    # [x, y, z] — offset in anchor frame when relative_to is set
+    quat: List[float]                   # [w, x, y, z] — rotation in anchor frame when relative_to is set
     rgba: Optional[List[float]] = None  # [r, g, b, a] — applied to named geoms
+    relative_to: Optional[str] = None  # name of anchor object; None means world frame
 
 
 @dataclass
@@ -207,7 +235,9 @@ class SceneBuilder:
             euler = obj.pop("euler", None)
             quat = obj.pop("quat", None)
             rgba = obj.pop("rgba", None)
-            builder.add_object(type_name, pos, name=name, euler=euler, quat=quat, rgba=rgba)
+            relative_to = obj.pop("relative_to", None)
+            builder.add_object(type_name, pos, name=name, euler=euler, quat=quat, rgba=rgba,
+                               relative_to=relative_to)
 
         for cam in desc.get("cameras", []):
             cam = dict(cam)
@@ -259,18 +289,25 @@ class SceneBuilder:
         euler: Optional[List[float]] = None,
         quat: Optional[List[float]] = None,
         rgba: Optional[List[float]] = None,
+        relative_to: Optional[str] = None,
     ):
         """Add one object instance to the scene.
 
         Args:
-            type_name: Resource key registered via add_resource().
-            pos:       World position [x, y, z].
-            name:      Body name.  Auto-generated as ``{type_name}_{n}`` if omitted.
-            euler:     XYZ Euler angles in degrees [rx, ry, rz].  Mutually exclusive
-                       with ``quat``.
-            quat:      Quaternion [w, x, y, z].  Identity if neither is given.
-            rgba:      RGBA colour override [r, g, b, a] applied to primary (named)
-                       geoms in the template.
+            type_name:   Resource key registered via add_resource().
+            pos:         Position [x, y, z].  World frame by default; local frame
+                         of *relative_to* when that is specified.
+            name:        Body name.  Auto-generated as ``{type_name}_{n}`` if omitted.
+            euler:       XYZ Euler angles in degrees [rx, ry, rz].  Mutually exclusive
+                         with ``quat``.
+            quat:        Quaternion [w, x, y, z].  Identity if neither is given.
+            rgba:        RGBA colour override [r, g, b, a] applied to primary (named)
+                         geoms in the template.
+            relative_to: Name of a previously-added object whose pose is used as the
+                         reference frame.  The offset ``pos`` is rotated by the anchor's
+                         orientation and added to its world position; the rotations are
+                         composed.  The anchor must be added before build_xml() is called
+                         but does not need to precede this call.
         """
         if type_name not in self._resources:
             raise ValueError(
@@ -297,6 +334,7 @@ class SceneBuilder:
                 pos=list(pos),
                 quat=list(quat),
                 rgba=list(rgba) if rgba is not None else None,
+                relative_to=relative_to,
             )
         )
 
@@ -353,8 +391,45 @@ class SceneBuilder:
             elevation=elevation, azimuth=azimuth,
         ))
 
-    def _get_object_pos(self, name: str) -> List[float]:
-        """Return the position of an object by body name."""
+    def _resolve_world_poses(self) -> "dict[str, tuple[List[float], List[float]]]":
+        """Resolve each object's world-frame (pos, quat), following relative_to chains.
+
+        Raises ValueError on unknown anchors or cycles.
+        """
+        by_name = {obj.name: obj for obj in self._objects}
+        resolved: dict[str, tuple[List[float], List[float]]] = {}
+        in_progress: set[str] = set()
+
+        def resolve(name: str) -> tuple[List[float], List[float]]:
+            if name in resolved:
+                return resolved[name]
+            if name in in_progress:
+                raise ValueError(f"Cycle detected in relative_to chain at {name!r}")
+            obj = by_name.get(name)
+            if obj is None:
+                raise ValueError(
+                    f"relative_to references unknown object {name!r}. "
+                    f"Add it with add_object() before calling build_xml()."
+                )
+            if obj.relative_to is None:
+                resolved[name] = (obj.pos, obj.quat)
+                return resolved[name]
+            in_progress.add(name)
+            anchor_pos, anchor_quat = resolve(obj.relative_to)
+            world_pos = [anchor_pos[i] + _quat_rotate(anchor_quat, obj.pos)[i] for i in range(3)]
+            world_quat = _quat_mul(anchor_quat, obj.quat)
+            in_progress.discard(name)
+            resolved[name] = (world_pos, world_quat)
+            return resolved[name]
+
+        for obj in self._objects:
+            resolve(obj.name)
+        return resolved
+
+    def _get_object_pos(self, name: str, world_poses: "dict | None" = None) -> List[float]:
+        """Return the world position of an object by body name."""
+        if world_poses is not None and name in world_poses:
+            return world_poses[name][0]
         for obj in self._objects:
             if obj.name == name:
                 return obj.pos
@@ -363,14 +438,14 @@ class SceneBuilder:
             f"Add it with add_object() before referencing it in a camera."
         )
 
-    def _camera_to_xml_attrs(self, spec: CameraSpec) -> dict:
+    def _camera_to_xml_attrs(self, spec: CameraSpec, world_poses: "dict | None" = None) -> dict:
         """Convert a CameraSpec to a dict of MJCF <camera> attributes."""
         attrs: dict = {"name": spec.name, "fovy": str(spec.fovy)}
 
         if spec.target is not None:
             # Orbit mode
             if isinstance(spec.target, str):
-                target_pos = self._get_object_pos(spec.target)
+                target_pos = self._get_object_pos(spec.target, world_poses)
                 cam_pos = _orbit_pos(target_pos, spec.distance, spec.elevation, spec.azimuth)
                 attrs["pos"] = " ".join(f"{v:.6g}" for v in cam_pos)
                 attrs["target"] = spec.target  # MuJoCo tracks the body dynamically
@@ -608,9 +683,12 @@ class SceneBuilder:
         ET.SubElement(worldbody, "geom", name="floor",
                       size="0 0 0.05", type="plane", material="groundplane", contype="1")
         self._add_scene_extras(worldbody)
+
+        world_poses = self._resolve_world_poses()
+
         if self._cameras:
             for cam_spec in self._cameras:
-                ET.SubElement(worldbody, "camera", **self._camera_to_xml_attrs(cam_spec))
+                ET.SubElement(worldbody, "camera", **self._camera_to_xml_attrs(cam_spec, world_poses))
         else:
             # Default cameras when none are configured
             ET.SubElement(worldbody, "camera", name="top_camera",
@@ -619,9 +697,16 @@ class SceneBuilder:
                           pos="1.6 0.55 0.8", euler="0 1.07 1.57", fovy="55")
             ET.SubElement(worldbody, "camera", name="front_camera",
                           pos="0.4 -0.4 0.7", xyaxes="1 0 0 0 0.4 0.8", fovy="60")
-
         for spec in self._objects:
-            body, extra_assets = self._instantiate_object(spec)
+            world_pos, world_quat = world_poses[spec.name]
+            resolved_spec = ObjectSpec(
+                type_name=spec.type_name,
+                name=spec.name,
+                pos=world_pos,
+                quat=world_quat,
+                rgba=spec.rgba,
+            )
+            body, extra_assets = self._instantiate_object(resolved_spec)
             worldbody.append(body)
             for elem in extra_assets:
                 asset.append(elem)
