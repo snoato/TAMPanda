@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial — TAMPanda</title>
+  <meta name="description" content="Step-by-step tutorial: install TAMPanda, build a MuJoCo scene, solve IK, plan with RRT*, run pick-and-place, and integrate PDDL planning with DomainBridge and Gymnasium." />
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <style>
+    :root {
+      --bg:         #0d0d12;
+      --surface:    #13131c;
+      --surface2:   #1b1b28;
+      --border:     #282838;
+      --text:       #ddddf0;
+      --muted:      #7878a0;
+      --purple:     #bf5fcf;
+      --purple-lo:  #8a3d9a;
+      --teal:       #7eecdf;
+      --teal-lo:    #3a8a82;
+      --radius:     8px;
+      --sidebar-w:  240px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    a { color: var(--teal); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Inline code only — never applies inside <pre> ── */
+    :not(pre) > code {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.83em;
+      background: var(--surface2);
+      color: var(--teal);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+
+    /* ── Code blocks ── */
+    pre {
+      margin: 1.25rem 0;
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+    /* Override hljs background to match theme */
+    pre code.hljs {
+      background: #0c0c15 !important;
+      border-radius: var(--radius) !important;
+      padding: 1.25rem 1.5rem !important;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+      font-size: 0.83rem !important;
+      line-height: 1.75 !important;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 56px;
+      background: rgba(13,13,18,0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand { display: flex; align-items: center; gap: 0.6rem; }
+    .nav-brand img.wordmark { height: 50px; width: auto; }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a { color: var(--muted); font-size: 0.9rem; transition: color .15s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: sticky;
+      top: 56px;
+      height: calc(100vh - 56px);
+      overflow-y: auto;
+      padding: 2rem 1.25rem;
+      border-right: 1px solid var(--border);
+    }
+    .sidebar-title {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 1rem; padding-left: 0.5rem;
+    }
+    .sidebar-nav { list-style: none; }
+    .sidebar-nav li { margin-bottom: 0.05rem; }
+    .sidebar-nav a {
+      display: flex; align-items: center; gap: 0.55rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 5px;
+      font-size: 0.82rem; color: var(--muted);
+      transition: color .15s, background .15s;
+    }
+    .sidebar-nav a:hover { color: var(--text); background: var(--surface); text-decoration: none; }
+    .sidebar-nav a.active { color: var(--purple); background: rgba(191,95,207,0.08); }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; min-width: 18px;
+      background: var(--surface2); border-radius: 50%;
+      font-size: 0.65rem; font-weight: 700; color: var(--muted);
+    }
+    .sidebar-nav a.active .step-num { background: var(--purple); color: #fff; }
+
+    /* ── MAIN CONTENT ── */
+    .content {
+      padding: 3rem 3.5rem 6rem;
+      min-width: 0; /* prevent grid blowout */
+    }
+
+    /* ── STEP SECTIONS ── */
+    .step {
+      margin-bottom: 4.5rem;
+      scroll-margin-top: 72px;
+    }
+    .step-header {
+      display: flex; align-items: center; gap: 0.8rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; min-width: 34px;
+      background: var(--purple); color: #fff;
+      font-weight: 800; font-size: 0.9rem;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .step-badge.teal  { background: var(--teal-lo); }
+    .step-badge.arrow { background: var(--surface2); color: var(--teal); font-size: 1rem; }
+    h2.step-title { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+
+    p { margin-bottom: 1rem; color: var(--text); }
+    p.muted { color: var(--muted); }
+    p:last-child { margin-bottom: 0; }
+    h3 { font-size: 0.95rem; font-weight: 700; margin: 1.75rem 0 0.5rem; color: var(--text); }
+
+    /* ── CALLOUT ── */
+    .callout {
+      display: flex; gap: 0.75rem;
+      padding: 0.9rem 1.2rem;
+      border-radius: var(--radius);
+      margin: 1.25rem 0;
+      font-size: 0.88rem;
+    }
+    .callout-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.15rem; }
+    .callout p { margin: 0; }
+    .callout-info { background: rgba(126,236,223,0.07); border-left: 3px solid var(--teal); }
+    .callout-note { background: rgba(191,95,207,0.07);  border-left: 3px solid var(--purple); }
+    .callout-warn { background: rgba(249,168,117,0.07); border-left: 3px solid #f9a875; }
+
+    /* ── IMAGES ── */
+    figure { margin: 1.5rem 0; }
+    .tutorial-img {
+      width: 100%; max-width: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: #111;
+      display: block;
+    }
+    figcaption {
+      font-size: 0.78rem; color: var(--muted);
+      margin-top: 0.5rem; text-align: center;
+    }
+
+    /* ── NEXT STEPS TABLE ── */
+    .next-table { width: 100%; border-collapse: collapse; font-size: 0.87rem; margin-top: 1rem; }
+    .next-table th {
+      text-align: left; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
+      padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    .next-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .next-table tr:last-child td { border-bottom: none; }
+    .next-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 0.81rem; color: var(--teal); }
+    .next-table td:last-child { color: var(--muted); }
+
+    /* ── FOOTER ── */
+    .page-footer {
+      border-top: 1px solid var(--border); padding: 2rem;
+      text-align: center; font-size: 0.82rem; color: var(--muted);
+    }
+    .page-footer a { color: var(--muted); }
+
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .content { padding: 2rem 1.25rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html" style="text-decoration:none">
+    <img class="wordmark" src="assets/wordmark.svg" alt="TAMPanda" />
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="https://github.com/snoato/tampanda">GitHub</a>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Tutorial</div>
+    <ul class="sidebar-nav">
+      <li><a href="#prerequisites"><span class="step-num">0</span> Prerequisites</a></li>
+      <li><a href="#install"><span class="step-num">1</span> Installation</a></li>
+      <li><a href="#scene"><span class="step-num">2</span> Building a Scene</a></li>
+      <li><a href="#ik"><span class="step-num">3</span> Inverse Kinematics</a></li>
+      <li><a href="#rrt"><span class="step-num">4</span> Motion Planning</a></li>
+      <li><a href="#grasp"><span class="step-num">5</span> Grasp Planning</a></li>
+      <li><a href="#pickplace"><span class="step-num">6</span> Pick &amp; Place</a></li>
+      <li><a href="#tamp"><span class="step-num">7</span> TAMP / DomainBridge</a></li>
+      <li><a href="#gym"><span class="step-num">8</span> Gymnasium / RL</a></li>
+      <li><a href="#next"><span class="step-num">→</span> Next Steps</a></li>
+    </ul>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main class="content">
+
+    <h1 style="font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:0.5rem">
+      Getting Started with TAMPanda
+    </h1>
+    <p class="muted" style="margin-bottom:3rem">
+      This tutorial walks from a fresh install to a complete pick-and-place pipeline
+      running in MuJoCo. It covers scene building, IK, RRT* motion planning, grasp
+      planning, and the TAMP integration. Allow about 20 minutes.
+    </p>
+
+    <!-- ── 0: Prerequisites ── -->
+    <div class="step" id="prerequisites">
+      <div class="step-header">
+        <div class="step-badge teal">0</div>
+        <h2 class="step-title">Prerequisites</h2>
+      </div>
+      <p>You need <strong>Python 3.10 or newer</strong>. TAMPanda has been tested on Linux and macOS.</p>
+      <div class="callout callout-warn">
+        <span class="callout-icon">🍎</span>
+        <p><strong>macOS only:</strong> Scripts that open an interactive MuJoCo viewer must be launched with <code>mjpython</code> instead of <code>python</code>. Headless scripts — including this tutorial's code — work fine with standard <code>python</code>.</p>
+      </div>
+      <p>Core dependencies — <code>mujoco ≥ 3.0</code>, <code>mink ≥ 0.0.1</code>, <code>numpy</code>, <code>loop-rate-limiters</code>, <code>matplotlib</code>, <code>opencv-python</code> — are all installed automatically.</p>
+    </div>
+
+    <!-- ── 1: Install ── -->
+    <div class="step" id="install">
+      <div class="step-header">
+        <div class="step-badge">1</div>
+        <h2 class="step-title">Installation</h2>
+      </div>
+      <p>Clone the repository and install in editable mode:</p>
+<pre><code class="language-bash">git clone https://github.com/snoato/tampanda.git
+cd tampanda
+pip install -e .</code></pre>
+      <p>Verify the install:</p>
+<pre><code class="language-bash">python -c "from tampanda import ArmSceneBuilder; print('TAMPanda OK')"</code></pre>
+      <div class="callout callout-info">
+        <span class="callout-icon">💡</span>
+        <p>Remote assets (YCB objects, Google Scanned Objects) download and cache on first use. An internet connection is needed the first time you call <code>add_resource</code> with a remote type.</p>
+      </div>
+    </div>
+
+    <!-- ── 2: Scene ── -->
+    <div class="step" id="scene">
+      <div class="step-header">
+        <div class="step-badge">2</div>
+        <h2 class="step-title">Building a Scene</h2>
+      </div>
+      <p><code>ArmSceneBuilder</code> assembles MuJoCo scenes from reusable MJCF templates at runtime — no manual XML editing. Register named resource types, then place instances with position and colour overrides.</p>
+<pre><code class="language-python">from tampanda import ArmSceneBuilder
+from tampanda.scenes import (
+    TABLE_SYMBOLIC_TEMPLATE,
+    CYLINDER_THIN_TEMPLATE,
+    BLOCK_SMALL_TEMPLATE,
+)
+
+builder = ArmSceneBuilder()
+
+# Register object types from built-in templates
+builder.add_resource("table",    TABLE_SYMBOLIC_TEMPLATE)
+builder.add_resource("cylinder", CYLINDER_THIN_TEMPLATE)
+builder.add_resource("block",    BLOCK_SMALL_TEMPLATE)
+
+# Place instances — position, optional RGBA, optional name
+builder.add_object("table",    pos=[0.75,  0.80, 0.00])
+builder.add_object("cylinder", pos=[0.40,  0.55, 0.35],
+                   rgba=[0.9, 0.3, 0.2, 1.0], name="cyl_a")
+builder.add_object("block",    pos=[0.55,  0.55, 0.29],
+                   rgba=[0.3, 0.8, 0.3, 1.0], name="block_a")
+
+# Remote YCB objects download and cache automatically
+builder.add_resource("can", {"type": "ycb", "name": "master_chef_can"})
+builder.add_object("can", pos=[0.45, 0.40, 0.35], name="can")
+
+env = builder.build_env(rate=200.0)
+env.forward()     # synchronise physics state</code></pre>
+
+      <figure>
+        <img class="tutorial-img" src="assets/scene.png"
+             alt="Assembled scene: front and top views of Franka Panda with table, cylinders, block, and YCB can" />
+        <figcaption>The assembled scene — front (left) and top (right). All objects are fully simulated in MuJoCo.</figcaption>
+      </figure>
+
+      <h3>Interactive viewer</h3>
+      <p>To see the simulation live, wrap the step loop in a viewer context. On macOS use <code>mjpython</code>.</p>
+<pre><code class="language-python">with env.launch_viewer() as viewer:
+    while viewer.is_running():
+        env.step()</code></pre>
+
+      <div class="callout callout-note">
+        <span class="callout-icon">🔁</span>
+        <p><strong>Hot-reload:</strong> <code>SceneBuilder</code> supports reloading simulation states at runtime for rapid episode generation. See <code>examples/scene_builder.py</code> for a live demo.</p>
+      </div>
+    </div>
+
+    <!-- ── 3: IK ── -->
+    <div class="step" id="ik">
+      <div class="step-header">
+        <div class="step-badge">3</div>
+        <h2 class="step-title">Inverse Kinematics</h2>
+      </div>
+      <p>TAMPanda uses <a href="https://github.com/kevinzakka/mink">Mink</a> for differential IK, accessed via <code>env.get_ik()</code>. The solver finds the joint configuration that places the end-effector at a target Cartesian pose.</p>
+<pre><code class="language-python">import numpy as np
+
+ik = env.get_ik()
+
+target_pos  = np.array([0.50, -0.10, 0.42])
+target_quat = np.array([0.00,  1.00,  0.00, 0.00])  # gripper pointing down
+
+ik.set_target_position(target_pos, target_quat)
+converged = ik.converge_ik(env.rate.dt)
+
+if converged:
+    q = ik.configuration.q[:7]   # 7-DOF joint angles
+    print(f"Joint angles [rad]: {np.round(q, 4)}")
+    env.data.qpos[:7] = q
+    env.forward()                 # apply to simulation</code></pre>
+
+      <figure>
+        <img class="tutorial-img" src="assets/ik.png"
+             alt="Left: arm at home position. Right: IK solution with gripper at target position." />
+        <figcaption>Home configuration (left) vs. IK solution for target [0.50, −0.10, 0.42] (right).</figcaption>
+      </figure>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">🔍</span>
+        <p>IK is used internally by <code>RRTStar.plan_to_pose</code> and <code>PickPlaceExecutor</code>. Direct access is useful when you need the joint configuration itself — for example, to seed a custom planner or validate reachability.</p>
+      </div>
+    </div>
+
+    <!-- ── 4: RRT* ── -->
+    <div class="step" id="rrt">
+      <div class="step-header">
+        <div class="step-badge">4</div>
+        <h2 class="step-title">Motion Planning with RRT*</h2>
+      </div>
+      <p><code>RRTStar</code> plans collision-free paths in joint configuration space. <code>plan_to_pose</code> calls IK internally to find a valid goal configuration, then plans a smoothed path to it.</p>
+<pre><code class="language-python">from tampanda import RRTStar
+
+planner = RRTStar(env)
+
+target_pos  = np.array([0.10, 0.45, 0.45])
+target_quat = np.array([1.00, 1.00, 1.00, 0.00])
+
+path = planner.plan_to_pose(
+    target_pos, target_quat,
+    dt=env.rate.dt,
+    max_iterations=2000,
+)
+
+if path is not None:
+    print(f"Path found: {len(path)} waypoints after smoothing")
+    env.execute_path(path, planner, step_size=0.05)
+    env.wait_idle()
+else:
+    print("No path found — try increasing max_iterations")</code></pre>
+
+      <figure>
+        <img class="tutorial-img" src="assets/rrt.png"
+             alt="RRT* path snapshots: start, midpoint, and goal from front and top cameras" />
+        <figcaption>RRT* path snapshots — start, midpoint, goal from front (top) and top (bottom) cameras.</figcaption>
+      </figure>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">⚙️</span>
+        <p>Key parameters: <code>max_iterations</code> (default 2000), <code>step_size</code>, <code>search_radius</code>, <code>goal_threshold</code>. For dense scenes, increase <code>max_iterations</code>. Path smoothing is applied automatically after planning.</p>
+      </div>
+    </div>
+
+    <!-- ── 5: Grasp ── -->
+    <div class="step" id="grasp">
+      <div class="step-header">
+        <div class="step-badge">5</div>
+        <h2 class="step-title">Grasp Planning</h2>
+      </div>
+      <p><code>GraspPlanner</code> generates ranked grasp candidates from object geometry. Each candidate encodes three poses: <strong>approach</strong> (gripper open, above the object), <strong>grasp</strong> (contact point), and <strong>lift</strong> (post-grasp raise).</p>
+<pre><code class="language-python">from tampanda import GraspPlanner
+from tampanda.planners.grasp_planner import GraspType
+
+grasp_planner = GraspPlanner(table_z=0.27)
+
+can_pos  = env.get_object_position("can")
+can_half = env.get_object_half_size("can")
+can_quat = env.get_object_orientation("can")
+
+candidates = grasp_planner.generate_candidates(can_pos, can_half, can_quat)
+for c in candidates:
+    print(f"  {c.grasp_type.value:<12}  score={c.score:.0f}")
+
+# Select a specific grasp type, or use candidates[0] for top-ranked
+candidate = next(c for c in candidates if c.grasp_type == GraspType.FRONT)</code></pre>
+
+      <figure>
+        <img class="tutorial-img" src="assets/grasp.png"
+             alt="Before and after a manual front-approach grasp on a YCB can" />
+        <figcaption>Manual pick execution using grasp candidate poses: approach → grasp → lift.</figcaption>
+      </figure>
+
+      <p>Candidates are ranked by a geometry score accounting for approach clearance and object shape. <code>PickPlaceExecutor</code> handles candidate selection and retry automatically — direct use of <code>GraspPlanner</code> is only needed when customising the grasp strategy.</p>
+    </div>
+
+    <!-- ── 6: Pick & Place ── -->
+    <div class="step" id="pickplace">
+      <div class="step-header">
+        <div class="step-badge">6</div>
+        <h2 class="step-title">Pick &amp; Place with <code>PickPlaceExecutor</code></h2>
+      </div>
+      <p><code>PickPlaceExecutor</code> wraps the full pick-and-place sequence into two calls. Failed candidates are retried automatically in score order.</p>
+<pre><code class="language-python">from tampanda import ArmSceneBuilder, RRTStar, GraspPlanner, PickPlaceExecutor
+import numpy as np
+
+# (Assumes env is already built — see Step 2)
+planner       = RRTStar(env)
+grasp_planner = GraspPlanner(table_z=0.27)
+executor      = PickPlaceExecutor(env, planner, grasp_planner,
+                                  use_attachment=True)
+
+ok = executor.pick(
+    "can",
+    env.get_object_position("can"),
+    env.get_object_half_size("can"),
+    env.get_object_orientation("can"),
+)
+
+if ok:
+    place_pos = np.array([0.45, 0.25, 0.34])
+    executor.place("can", place_pos)</code></pre>
+
+      <figure>
+        <img class="tutorial-img" src="assets/pickplace.png"
+             alt="Three panels: scene before pick, after pick with can held, after place with can at new location" />
+        <figcaption><code>PickPlaceExecutor</code> — before (left), after pick (centre), after place (right).</figcaption>
+      </figure>
+
+      <div class="callout callout-note">
+        <span class="callout-icon">🔧</span>
+        <p><strong>Lower-level access:</strong> Bypass <code>PickPlaceExecutor</code> and call <code>planner.plan_to_pose</code>, <code>env.execute_path</code>, <code>env.controller.close_gripper()</code>, and <code>env.attach_object_to_ee()</code> directly. This is useful for custom grasp strategies or research into individual manipulation phases.</p>
+      </div>
+    </div>
+
+    <!-- ── 7: TAMP / DomainBridge ── -->
+    <div class="step" id="tamp">
+      <div class="step-header">
+        <div class="step-badge">7</div>
+        <h2 class="step-title">TAMP Integration &amp; DomainBridge</h2>
+      </div>
+      <p>TAMPanda provides two levels of TAMP integration. The <strong>domain-specific domains</strong> (tabletop, blocks) are ready-made instantiations for specific settings. The <strong><code>DomainBridge</code></strong> is a generic adapter in <code>tampanda.tamp</code> that lets you wire any PDDL domain to TAMPanda's continuous execution layer using Python decorators — no modifications to TAMPanda internals required.</p>
+
+      <h3>DomainBridge — generic PDDL adapter</h3>
+      <p><code>DomainBridge</code> loads a PDDL domain file and provides three decorator hooks: <code>@bridge.predicate</code> for code-evaluated symbol truth rules, <code>@bridge.action</code> for action execution callbacks, and <code>@bridge.sampler</code> for object pose sampling. Planning is handled by the <a href="https://github.com/aiplan4eu/unified-planning">unified-planning</a> library.</p>
+
+<pre><code class="language-python">from tampanda.tamp import DomainBridge
+
+bridge = DomainBridge("blocks_world.pddl", env)
+
+# --- Symbol truth rules (re-evaluated each ground_state call) ---
+@bridge.predicate("on")
+def eval_on(env, fluents, block_top, block_bot):
+    top_pos = env.get_object_position(block_top)
+    bot_pos = env.get_object_position(block_bot)
+    xy_overlap = np.linalg.norm(top_pos[:2] - bot_pos[:2]) < 0.04
+    z_stacked  = abs(top_pos[2] - bot_pos[2] - 0.05) < 0.02
+    return xy_overlap and z_stacked
+
+@bridge.predicate("on_table")
+def eval_on_table(env, fluents, block):
+    return env.get_object_position(block)[2] < 0.35
+
+# --- Action-tracked fluent (truth maintained by action effects) ---
+bridge.fluent("holding", initial=None)
+
+# --- Action execution callbacks ---
+@bridge.action("pick")
+def exec_pick(env, fluents, gripper, block):
+    ok = executor.pick(block,
+             env.get_object_position(block),
+             env.get_object_half_size(block),
+             env.get_object_orientation(block))
+    delta = {("holding", gripper, block): ok,
+             ("gripper-empty", gripper): not ok}
+    return ok, delta
+
+# --- Object pose sampler ---
+@bridge.sampler("block")
+def sample_block(env, placed_so_far, rng):
+    x = rng.uniform(0.30, 0.60)
+    y = rng.uniform(-0.20, 0.20)
+    return np.array([x, y, 0.31])</code></pre>
+
+      <p>Once registered, plan and execute with:</p>
+<pre><code class="language-python">objects = {"block": ["block_0", "block_1", "block_2"],
+           "gripper": ["gripper1"]}
+goals   = [("on", "block_0", "block_1"),
+           ("on", "block_1", "block_2")]
+
+plan = bridge.plan(objects, goals)
+# plan = [("pick", ("gripper1", "block_0")),
+#         ("stack", ("gripper1", "block_0", "block_1")), ...]
+
+for action_name, params in plan:
+    success, _ = bridge.execute_action(action_name, *params,
+                                       objects=objects)
+    if not success:
+        break</code></pre>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">🧩</span>
+        <p><code>bridge.sample_random_state(type_counts)</code> uses registered samplers to place objects collision-free at random, making it easy to generate diverse training scenes. <code>bridge.describe()</code> prints a human-readable summary of all registered predicates, actions, and types.</p>
+      </div>
+
+      <h3>Built-in domain example: BlocksBridge</h3>
+      <p><code>tampanda.symbolic.domains.blocks.blocks_bridge</code> shows a complete blocks-world wiring using <code>DomainBridge</code> — pick, place, stack, and unstack actions with predicate grounding and a collision-free sampler, in roughly 100 lines. Use it as a reference when building your own domain.</p>
+<pre><code class="language-python">from tampanda.symbolic.domains.blocks.blocks_bridge import make_blocks_bridge
+
+bridge, objects = make_blocks_bridge(env)
+plan = bridge.plan(objects, goals=[("on", "block_0", "block_1")])</code></pre>
+
+      <h3>Hardcoded tabletop domain (legacy)</h3>
+      <p>The original tabletop grid domain in <code>tampanda.symbolic.domains.tabletop</code> remains available and is fully functional. It uses its own <code>StateManager</code> and <code>GridDomain</code> classes and does not use <code>DomainBridge</code>.</p>
+<pre><code class="language-bash"># Full tabletop TAMP pipeline
+python examples/demo_pick_put.py
+
+# Grid-based PDDL planning with live viewer (macOS: mjpython)
+mjpython examples/symbolic.py</code></pre>
+    </div>
+
+    <!-- ── 8: Gymnasium ── -->
+    <div class="step" id="gym">
+      <div class="step-header">
+        <div class="step-badge">8</div>
+        <h2 class="step-title">Gymnasium &amp; Reinforcement Learning</h2>
+      </div>
+      <p><code>tampanda.gym</code> provides a full Gymnasium-compatible environment suite built on top of <code>FrankaEnvironment</code>. It supports standard RL training, goal-conditioned learning with HER, and symbolic plan-guided reward shaping.</p>
+
+      <h3>Basic environment</h3>
+      <p><code>TampandaGymEnv</code> wraps any <code>ArmSceneBuilder</code> scene as a <code>gymnasium.Env</code> with configurable observation and action spaces.</p>
+<pre><code class="language-python">from tampanda.gym import TampandaGymEnv
+
+env = TampandaGymEnv(
+    scene=builder,                          # ArmSceneBuilder instance
+    obs=["joints", "ee_pose", "object_poses"],
+    action_space_type="joint_delta",        # or "joint_target", "cartesian_delta"
+    include_gripper=True,
+    reward_fn="dense_grasp",                # or "sparse_grasp", callable
+    object_names=["block_0"],
+    max_episode_steps=500,
+)
+
+obs, info = env.reset()
+obs, reward, terminated, truncated, info = env.step(env.action_space.sample())</code></pre>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">📷</span>
+        <p>Visual observations are supported: pass <code>obs=["rgb", "depth", "pointcloud"]</code> with optional <code>image_size=(84, 84)</code> and <code>pointcloud_n_points=1024</code>. Camera names are passed via <code>cameras=[...]</code>.</p>
+      </div>
+
+      <h3>Goal-conditioned learning with HER</h3>
+      <p><code>TampandaGoalEnv</code> adds an HER-compatible goal structure. It wraps observations as <code>{"observation", "achieved_goal", "desired_goal"}</code> and implements the batched <code>compute_reward</code> required by <code>HerReplayBuffer</code>.</p>
+<pre><code class="language-python">from tampanda.gym import TampandaGoalEnv
+
+env = TampandaGoalEnv(
+    scene=builder,
+    goal_type="object_pose",       # or "symbolic_predicates"
+    goal_objects=["block_0"],
+    goal_threshold=0.02,           # metres, for object_pose mode
+    obs=["joints", "ee_pose", "object_poses"],
+    action_space_type="joint_delta",
+)
+
+# Works directly with stable-baselines3 HerReplayBuffer
+# goal_type="symbolic_predicates" uses a DomainBridge for grounding</code></pre>
+
+      <h3>Wrappers</h3>
+      <p>Three wrappers augment any <code>TampandaGymEnv</code>:</p>
+<pre><code class="language-python">from tampanda.gym.wrappers import (
+    PseudoGraspWrapper,      # kinematic attachment on gripper close + proximity
+    SymbolicRewardWrapper,   # reward shaping from symbolic plan progress
+    ExpertActionWrapper,     # expert_action() via RRT* + PickPlaceExecutor
+)
+
+env = PseudoGraspWrapper(env, grasp_threshold=0.08)
+env = SymbolicRewardWrapper(env, goal_bonus=1.0, dense_scale=0.1)</code></pre>
+
+      <h3>Parallel environments</h3>
+      <p><code>make_vec_env</code> spawns isolated workers — each gets its own MuJoCo instance and <code>DomainBridge</code>. Works on macOS and Linux.</p>
+<pre><code class="language-python">from tampanda.gym import make_vec_env, TampandaGymEnv
+
+vec_env = make_vec_env(
+    env_fn=lambda: TampandaGymEnv(builder, obs=["joints", "ee_pose"]),
+    n_envs=8,
+)
+
+# Pass bridge_factory= to TampandaGymEnv to regenerate a fresh
+# DomainBridge on each reset() — required for parallel workers.</code></pre>
+
+      <div class="callout callout-note">
+        <span class="callout-icon">🔗</span>
+        <p>Pass a <code>bridge_factory</code> callable to <code>TampandaGymEnv</code> to connect <code>DomainBridge</code> with the Gym environment. On each <code>reset()</code> a fresh bridge is instantiated, the symbolic plan is computed and stored in <code>info["symbolic_plan"]</code>, and <code>SymbolicRewardWrapper</code> uses plan progress for shaping.</p>
+      </div>
+    </div>
+
+    <!-- ── Next Steps ── -->
+    <div class="step" id="next">
+      <div class="step-header">
+        <div class="step-badge arrow">→</div>
+        <h2 class="step-title">Next Steps</h2>
+      </div>
+      <p>You now have a working TAMPanda install and understand the full pipeline from scene to symbolic plan to RL training. Here's where to go next:</p>
+
+      <table class="next-table">
+        <thead><tr><th>Goal</th><th>Where to look</th></tr></thead>
+        <tbody>
+          <tr><td>basic_ik.py / basic_rrt.py</td><td>Live interactive viewer demos</td></tr>
+          <tr><td>grasping_rrt_planner.py</td><td>Grasping with ranked candidates in the viewer</td></tr>
+          <tr><td>blocks_world_rrt.py</td><td>Multi-object pick-and-place with <code>PickPlaceExecutor</code></td></tr>
+          <tr><td>demo_pick_put.py</td><td>Full tabletop TAMP pipeline end-to-end</td></tr>
+          <tr><td>symbolic.py</td><td>Grid-based PDDL planning with live viewer</td></tr>
+          <tr><td>blocks_bridge.py</td><td>DomainBridge instantiation for blocks world (reference implementation)</td></tr>
+          <tr><td>object_browser.py</td><td>Browse and download YCB / Google Scanned Objects</td></tr>
+          <tr><td>generate_data --help</td><td>Parallelized training dataset generation</td></tr>
+          <tr><td>learn_stack_action.py</td><td>SAC + HER stacking via <code>TampandaGoalEnv</code></td></tr>
+          <tr><td>mobile_getting_started.ipynb</td><td>Mobile robot (A* navigation, Lidar, IMU)</td></tr>
+          <tr><td>franka_getting_started.ipynb</td><td>Interactive notebook for Steps 2–6 of this tutorial</td></tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:2.5rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+        <a href="https://github.com/snoato/tampanda"
+           style="display:inline-block;background:var(--purple);color:#fff;padding:0.6rem 1.4rem;border-radius:8px;font-weight:600;font-size:0.95rem;text-decoration:none">
+          View on GitHub →
+        </a>
+        <a href="index.html"
+           style="display:inline-block;border:1px solid var(--border);color:var(--text);padding:0.6rem 1.4rem;border-radius:8px;font-weight:600;font-size:0.95rem;text-decoration:none">
+          ← Back to home
+        </a>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="page-footer">
+  TAMPanda · Chair of Machine Learning and Reasoning (i6), RWTH Aachen University ·
+  <a href="https://github.com/snoato/tampanda">GitHub</a> · MIT License
+</div>
+
+<script>
+  // Active sidebar link tracking on scroll
+  const steps = document.querySelectorAll('.step');
+  const links  = document.querySelectorAll('.sidebar-nav a');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.sidebar-nav a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-15% 0px -75% 0px' });
+  steps.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

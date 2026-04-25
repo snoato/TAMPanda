@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TAMPanda — MuJoCo Wrapper for Neuro-Symbolic Robotics</title>
+  <meta name="description" content="TAMPanda is a lightweight, open-source MuJoCo wrapper for prototyping neuro-symbolic and TAMP robotics research." />
+  <style>
+    :root {
+      --bg:         #0d0d12;
+      --surface:    #13131c;
+      --surface2:   #1b1b28;
+      --border:     #282838;
+      --text:       #ddddf0;
+      --muted:      #7878a0;
+      --purple:     #bf5fcf;
+      --purple-lo:  #8a3d9a;
+      --teal:       #7eecdf;
+      --teal-lo:    #3a8a82;
+      --code-bg:    #09090f;
+      --radius:     8px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    a { color: var(--teal); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 56px;
+      background: rgba(13,13,18,0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 0.6rem;
+      text-decoration: none;
+    }
+    .nav-brand img.wordmark   { height: 50px; width: auto; }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a { color: var(--muted); font-size: 0.9rem; transition: color .15s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .btn-nav {
+      background: var(--purple); color: #fff !important;
+      padding: 0.35rem 0.9rem; border-radius: 6px;
+      font-weight: 600; font-size: 0.85rem;
+      transition: background .15s;
+    }
+    .btn-nav:hover { background: var(--purple-lo) !important; }
+
+    /* ── HERO ── */
+    .hero {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 4.5rem 2rem 3.5rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero img.banner {
+      width: 100%; max-width: 700px;
+      border-radius: var(--radius);
+      margin-bottom: 2.5rem;
+    }
+    .hero img.hero-panda {
+      height: 360px; width: auto;
+      margin-bottom: 1.25rem;
+    }
+    .hero p.tagline {
+      font-size: 1.1rem; color: var(--muted);
+      max-width: 580px; margin-bottom: 2rem; line-height: 1.7;
+    }
+    .install-box {
+      display: flex; flex-direction: column; gap: 0;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1.4rem;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.88rem;
+      margin-bottom: 2rem;
+      text-align: left;
+    }
+    .install-line { display: flex; align-items: center; gap: 0.65rem; line-height: 1.8; }
+    .install-line .prompt { color: var(--teal); user-select: none; }
+    .install-line code { color: var(--text); background: none; padding: 0; font-size: inherit; }
+    .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      display: inline-block; padding: 0.6rem 1.4rem;
+      border-radius: var(--radius); font-weight: 600; font-size: 0.95rem;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .btn:hover { opacity: 0.85; text-decoration: none; }
+    .btn-primary  { background: var(--purple); color: #fff; }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--muted); }
+    .badges {
+      display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;
+      margin-top: 2rem;
+    }
+    .badges img { height: 20px; }
+
+    /* ── PITCH ── */
+    .pitch {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .pitch-inner {
+      max-width: 1100px; margin: 0 auto; padding: 4rem 2rem;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 3rem; align-items: center;
+    }
+    .pitch-inner .text h2 { margin-bottom: 1rem; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; }
+    .pitch-inner .text p  { color: var(--muted); margin-bottom: 0.85rem; }
+    .pitch-inner .text p strong { color: var(--text); }
+    .code-panel {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .code-panel-header {
+      padding: 0.55rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem; font-weight: 600; color: var(--muted);
+      letter-spacing: 0.04em;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .code-panel-header .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+    .code-panel pre {
+      padding: 1.1rem 1.4rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.82rem; line-height: 1.75;
+      color: var(--text);
+      overflow-x: auto;
+    }
+    .kw  { color: #c792ea; }
+    .fn  { color: var(--teal); }
+    .st  { color: #f9a875; }
+    .cm  { color: #546e7a; }
+    .nb  { color: #a8c7fa; }
+    .op  { color: var(--muted); }
+
+    /* ── SECTION ── */
+    section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--purple);
+      margin-bottom: 0.75rem;
+    }
+    h2.section-h { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.85rem; }
+    .section-sub { color: var(--muted); font-size: 1rem; max-width: 640px; margin-bottom: 2.5rem; }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: border-color .2s;
+    }
+    .feature-card:hover { border-color: var(--purple-lo); }
+    .feature-icon { font-size: 1.4rem; margin-bottom: 0.85rem; }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text); }
+    .feature-card p { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+    .feature-card .tag {
+      display: inline-block; margin-top: 0.75rem;
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--teal);
+      background: rgba(126,236,223,0.08);
+      padding: 0.2rem 0.5rem; border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── AUDIENCE ── */
+    .audience {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .audience-inner { max-width: 1100px; margin: 0 auto; padding: 4rem 2rem; }
+    .audience-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem; margin-top: 2rem;
+    }
+    .audience-card {
+      border-left: 3px solid var(--purple);
+      padding: 1.25rem 1.5rem;
+      background: var(--surface2);
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+    .audience-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .audience-card p  { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── APPLICATIONS ── */
+    .apps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem; margin-top: 2rem;
+    }
+    .app-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+    .app-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--purple); }
+    .app-card p  { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── EXAMPLES ── */
+    .examples-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 1.5rem; }
+    .examples-table th {
+      text-align: left; font-size: 0.73rem; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
+      padding: 0.5rem 1rem; border-bottom: 1px solid var(--border);
+    }
+    .examples-table td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .examples-table tr:last-child td { border-bottom: none; }
+    .examples-table td:first-child {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.82rem; color: var(--teal);
+    }
+    .examples-table td:last-child { color: var(--muted); }
+
+    /* ── CTA ── */
+    .cta { text-align: center; border-top: 1px solid var(--border); padding: 4rem 2rem; }
+    .cta h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .cta p { color: var(--muted); margin-bottom: 2rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border); padding: 2rem;
+      text-align: center; font-size: 0.82rem; color: var(--muted);
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 760px) {
+      .pitch-inner { grid-template-columns: 1fr; }
+      nav { padding: 0 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html">
+    <img class="wordmark" src="assets/wordmark.svg" alt="TAMPanda" />
+  </a>
+  <div class="nav-links">
+    <a href="tutorial.html">Tutorial</a>
+    <a href="https://github.com/snoato/tampanda">GitHub</a>
+    <a href="tutorial.html" class="btn-nav">Get Started →</a>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <img class="hero-panda" src="assets/panda.svg" alt="TAMPanda" />
+  <p class="tagline">
+    A lightweight, open-source MuJoCo wrapper for the Franka Emika Panda.
+    Scene building, IK, RRT*, and pick-and-place out of the box — so neuro-symbolic
+    and TAMP researchers can focus on the algorithm, not the infrastructure.
+  </p>
+
+  <div class="install-box">
+    <div class="install-line"><span class="prompt">$</span><code>git clone https://github.com/snoato/tampanda</code></div>
+    <div class="install-line"><span class="prompt">$</span><code>cd tampanda &amp;&amp; pip install -e .</code></div>
+  </div>
+
+  <div class="hero-actions">
+    <a class="btn btn-primary"   href="tutorial.html">Step-by-step tutorial</a>
+    <a class="btn btn-secondary" href="https://github.com/snoato/tampanda">View on GitHub</a>
+  </div>
+  <div class="badges">
+    <img src="https://img.shields.io/badge/license-MIT-bf5fcf?style=flat-square&labelColor=0d0d12" alt="MIT" />
+    <img src="https://img.shields.io/badge/python-%E2%89%A53.10-bf5fcf?style=flat-square&labelColor=0d0d12" alt="Python ≥3.10" />
+    <img src="https://img.shields.io/badge/mujoco-3.x-7eecdf?style=flat-square&labelColor=0d0d12" alt="MuJoCo 3.x" />
+  </div>
+</div>
+
+<!-- ── Pitch ── -->
+<div class="pitch">
+  <div class="pitch-inner">
+    <div class="text">
+      <div class="section-label">Why TAMPanda</div>
+      <h2>From symbolic plan to physical execution in minutes</h2>
+      <p>Transitioning from standard planning benchmarks to physics simulation is expensive: you need scenes, collision detection, grasp pipelines, and control loops <strong>before testing a single idea.</strong></p>
+      <p>TAMPanda wraps all of that. A symbolic instruction like <code style="font-family:monospace;color:var(--teal);background:var(--surface2);padding:.1em .35em;border-radius:4px;font-size:.9em">pick(block)</code> translates into a physically validated, collision-free trajectory — automatically.</p>
+      <p>Components are modular: use the high-level executor, or drop down to IK solvers, motion planners, and joint-space representations directly.</p>
+    </div>
+    <div class="code-panel">
+      <div class="code-panel-header">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        quickstart.py
+      </div>
+<pre><span class="kw">from</span> tampanda <span class="kw">import</span> ArmSceneBuilder, RRTStar
+<span class="kw">from</span> tampanda <span class="kw">import</span> GraspPlanner, PickPlaceExecutor
+<span class="kw">from</span> tampanda.scenes <span class="kw">import</span> (
+    TABLE_SYMBOLIC_TEMPLATE,
+    BLOCK_SMALL_TEMPLATE,
+)
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># Build a scene from a Python config</span>
+builder <span class="op">=</span> <span class="fn">ArmSceneBuilder</span>()
+builder.<span class="fn">add_resource</span>(<span class="st">"table"</span>, TABLE_SYMBOLIC_TEMPLATE)
+builder.<span class="fn">add_resource</span>(<span class="st">"block"</span>, BLOCK_SMALL_TEMPLATE)
+builder.<span class="fn">add_object</span>(<span class="st">"table"</span>, pos<span class="op">=</span>[<span class="nb">0.75</span>, <span class="nb">0.80</span>, <span class="nb">0.00</span>])
+builder.<span class="fn">add_object</span>(<span class="st">"block"</span>, pos<span class="op">=</span>[<span class="nb">0.45</span>, <span class="nb">0.40</span>, <span class="nb">0.31</span>],
+                   name<span class="op">=</span><span class="st">"block_0"</span>)
+
+env      <span class="op">=</span> builder.<span class="fn">build_env</span>(rate<span class="op">=</span><span class="nb">200.0</span>)
+planner  <span class="op">=</span> <span class="fn">RRTStar</span>(env)
+executor <span class="op">=</span> <span class="fn">PickPlaceExecutor</span>(
+    env, planner, <span class="fn">GraspPlanner</span>(table_z<span class="op">=</span><span class="nb">0.27</span>))
+
+<span class="cm"># One call handles approach → grasp → lift → place</span>
+executor.<span class="fn">pick</span>(
+    <span class="st">"block_0"</span>,
+    env.<span class="fn">get_object_position</span>(<span class="st">"block_0"</span>),
+    env.<span class="fn">get_object_half_size</span>(<span class="st">"block_0"</span>),
+    env.<span class="fn">get_object_orientation</span>(<span class="st">"block_0"</span>))
+executor.<span class="fn">place</span>(<span class="st">"block_0"</span>,
+    np.<span class="fn">array</span>([<span class="nb">0.50</span>, <span class="nb">0.25</span>, <span class="nb">0.31</span>]))</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ── -->
+<section>
+  <div class="section-label">Framework</div>
+  <h2 class="section-h">Modular components for the full pipeline</h2>
+  <p class="section-sub">Each component can be used independently or in combination. Use the high-level API or drop down to any layer.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🏗️</div>
+      <h3>Scene Builder</h3>
+      <p>Assemble MuJoCo environments from Python — no manual MJCF/XML. Register object templates, place instances, set colours. Supports hot-reload and YCB / Google Scanned Objects (~1 000 objects) on demand.</p>
+      <span class="tag">ArmSceneBuilder</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🦾</div>
+      <h3>Inverse Kinematics</h3>
+      <p>Differential IK via <a href="https://github.com/kevinzakka/mink">Mink</a>. Solve for end-effector pose targets with configurable position and orientation thresholds. Exposed for custom planner integration.</p>
+      <span class="tag">MinkIK</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🗺️</div>
+      <h3>Motion Planning</h3>
+      <p>RRT* with path smoothing in joint configuration space. Geometry-aware grasp candidate ranking. Parallelized RRT feasibility checks for reward shaping in learning pipelines.</p>
+      <span class="tag">RRTStar</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🤏</div>
+      <h3>Pick &amp; Place</h3>
+      <p>Translates a single high-level <code style="font-family:monospace;font-size:.85em">pick(obj)</code> call into approach → grasp → lift → transport → place. Multi-candidate retry and kinematic object attachment included.</p>
+      <span class="tag">PickPlaceExecutor</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧩</div>
+      <h3>PDDL Domain Adapter</h3>
+      <p>Wire any PDDL domain to TAMPanda's continuous execution layer using Python decorators — define predicate truth rules, action executors, and pose samplers without modifying TAMPanda internals. Planning via <a href="https://github.com/aiplan4eu/unified-planning">unified-planning</a>.</p>
+      <span class="tag">DomainBridge</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎮</div>
+      <h3>Gymnasium Integration</h3>
+      <p>Full Gymnasium-compatible environment suite: standard env, HER-compatible goal env, symbolic reward shaping, expert action wrapper, and spawn-safe parallel workers via <code style="font-family:monospace;font-size:.85em">make_vec_env</code>.</p>
+      <span class="tag">TampandaGymEnv · HER</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📷</div>
+      <h3>Perception</h3>
+      <p>RGB, depth, and segmentation rendering. Point cloud generation with object filtering. Ground-truth state access and predicate grounding for symbolic state estimation.</p>
+      <span class="tag">MujocoCamera</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Audience ── -->
+<div class="audience">
+  <div class="audience-inner">
+    <div class="section-label">Who it's for</div>
+    <h2 class="section-h">Built for the neuro-symbolic and TAMP communities</h2>
+    <div class="audience-grid">
+      <div class="audience-card">
+        <h3>Neuro-Symbolic AI Researchers</h3>
+        <p>Bridge symbolic representations and continuous robot execution — predicate grounding, spatial reasoning, plan-conditioned policies — without writing simulation infrastructure from scratch.</p>
+      </div>
+      <div class="audience-card">
+        <h3>TAMP Researchers</h3>
+        <p>Lightweight alternative to full TAMP systems for rapid prototyping. Symbolic actions are validated by IK + RRT* before commitment; planners and solvers are swappable.</p>
+      </div>
+      <div class="audience-card">
+        <h3>Reinforcement Learning Researchers</h3>
+        <p>Drop-in Gymnasium environment with configurable observation spaces, HER-compatible goal conditioning, symbolic reward shaping, and spawn-safe parallel workers. Symbolic predicates can be used as structured goal representations.</p>
+      </div>
+      <div class="audience-card">
+        <h3>RoboCup Teams</h3>
+        <p>Model assembly and manipulation tasks offline. Integrated YCB and Google Scanned Objects support makes it easy to instantiate standard object sets for league-specific domains.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Applications ── -->
+<section>
+  <div class="section-label">Applications</div>
+  <h2 class="section-h">In use for ongoing research</h2>
+  <p class="section-sub">TAMPanda was built to support active research at the Chair of Machine Learning and Reasoning (i6), RWTH Aachen University.</p>
+  <div class="apps-grid">
+    <div class="app-card">
+      <h3>Neuro-Symbolic Representation Learning</h3>
+      <p>TAMPanda's <code style="font-family:monospace;font-size:.88em">BlocksDomain</code> drives data generation pipelines for learning to predict continuous object configurations from symbolic state sequences. Predicate grounding provides validation oracles.</p>
+    </div>
+    <div class="app-card">
+      <h3>Geometric Feasibility in Planning</h3>
+      <p>Parallelized RRT feasibility checking at simulation throughputs sufficient for online reward shaping, supporting research into learning implicit geometric pre-conditions in underspecified symbolic domains.</p>
+    </div>
+    <div class="app-card">
+      <h3>Goal-Conditioned Manipulation Policies</h3>
+      <p>TAMPanda provides the physics environment and symbolic observation layer for training goal-conditioned policies over individual symbolic state transitions.</p>
+    </div>
+    <div class="app-card">
+      <h3>RoboCup Smart Manufacturing League</h3>
+      <p>The <code style="font-family:monospace;font-size:.88em">SceneBuilder</code> and <code style="font-family:monospace;font-size:.88em">PickPlaceExecutor</code> serve as the simulation backbone for offline assembly sequence planning in the RoboCup SML assembly task.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Examples ── -->
+<section style="border-top: 1px solid var(--border); padding-top: 4rem;">
+  <div class="section-label">Examples</div>
+  <h2 class="section-h">Ready to run</h2>
+  <p class="section-sub">All examples are in <code style="font-family:monospace;color:var(--teal);background:var(--surface2);padding:.1em .4em;border-radius:4px;font-size:.9em">examples/</code>. On macOS, use <code style="font-family:monospace;color:var(--teal);background:var(--surface2);padding:.1em .4em;border-radius:4px;font-size:.9em">mjpython</code> for scripts that open a viewer.</p>
+
+  <table class="examples-table">
+    <thead><tr><th>Script</th><th>What it demonstrates</th></tr></thead>
+    <tbody>
+      <tr><td>basic_ik.py</td><td>IK to a target pose, held in the interactive viewer</td></tr>
+      <tr><td>basic_rrt.py</td><td>RRT* path between two joint configurations</td></tr>
+      <tr><td>grasping_rrt_planner.py</td><td>Geometry-aware grasping with ranked candidates</td></tr>
+      <tr><td>blocks_world_rrt.py</td><td>Pick two cubes onto a platform using <code style="font-family:monospace;font-size:.88em">PickPlaceExecutor</code></td></tr>
+      <tr><td>demo_pick_put.py</td><td>Full TAMP pipeline: <code style="font-family:monospace;font-size:.88em">GridDomain</code> → symbolic plan → continuous execution</td></tr>
+      <tr><td>symbolic.py</td><td>Grid-based PDDL planning with live viewer</td></tr>
+      <tr><td>scene_builder.py</td><td>Programmatic scene construction with hot-reload</td></tr>
+      <tr><td>object_browser.py</td><td>Browse, download, and preview YCB / Google Scanned Objects</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ── CTA ── -->
+<div class="cta">
+  <h2>Ready to get started?</h2>
+  <p>The tutorial takes about 20 minutes and ends with a full pick-and-place pipeline running in simulation.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary"   href="tutorial.html">Open the tutorial →</a>
+    <a class="btn btn-secondary" href="https://github.com/snoato/tampanda">GitHub repository</a>
+  </div>
+</div>
+
+<footer>
+  TAMPanda · Chair of Machine Learning and Reasoning (i6), RWTH Aachen University ·
+  <a href="https://github.com/snoato/tampanda">GitHub</a> · MIT License
+</footer>
+
+</body>
+</html>
