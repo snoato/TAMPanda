@@ -48,8 +48,13 @@ class PositionController(RobotArmController):
         self.status = ControllerStatus.IDLE
         self.trajectory = []   # compensated ctrl targets
         self._waypoints = []   # uncompensated joint targets (used for advance condition)
+        self.delta = 0.1
+        self.grasping_delta = 0.03
+    
+    def step(self, delta: float = None, grasping_delta: float = None):
+        delta = self.delta if delta is None else delta
+        grasping_delta = self.grasping_delta if grasping_delta is None else grasping_delta
 
-    def step(self, delta: float = 0.1, grasping_delta: float = 0.3):
         if self.status == ControllerStatus.IDLE:
             if self.trajectory:
                 self.status = ControllerStatus.MOVING
@@ -143,4 +148,3 @@ class PositionController(RobotArmController):
             return
         self.trajectory = trajectory
         self._waypoints = waypoints if waypoints is not None else []
-

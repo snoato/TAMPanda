@@ -51,6 +51,54 @@ class RRTStar(BaseMotionPlanner):
         # Joint limits for sampling
         self.joint_limits_low = self.model.jnt_range[:7, 0].copy()
         self.joint_limits_high = self.model.jnt_range[:7, 1].copy()
+        self.last_plan_failure = None
+        self.plan_failure_history = []
+        self.last_plan_stats = None
+
+    def _reset_plan_diagnostics(self):
+        self.last_plan_failure = None
+        self.plan_failure_history = []
+        self.last_plan_stats = None
+
+    def _set_plan_failure(self, stage: str, reason: str, **details):
+        self.last_plan_failure = {
+            "stage": stage,
+            "reason": reason,
+            **details,
+        }
+        self.plan_failure_history.append(self.last_plan_failure)
+
+    def _set_plan_success(self, stage: str, **details):
+        self.last_plan_failure = None
+        self.last_plan_stats = {
+            "stage": stage,
+            "reason": "success",
+            **details,
+        }
+
+    def _get_ik_error_details(self):
+        if getattr(self.ik, "ee_task", None) is None:
+            return {}
+
+        err = self.ik.ee_task.compute_error(self.ik.configuration)
+        position_error = float(np.linalg.norm(err[:3]))
+        orientation_error = float(np.linalg.norm(err[3:]))
+        position_threshold = getattr(self.ik, "pos_threshold", None)
+        orientation_threshold = getattr(self.ik, "ori_threshold", None)
+        failed_thresholds = []
+
+        if position_threshold is not None and position_error > position_threshold:
+            failed_thresholds.append("position")
+        if orientation_threshold is not None and orientation_error > orientation_threshold:
+            failed_thresholds.append("orientation")
+
+        return {
+            "position_error": position_error,
+            "orientation_error": orientation_error,
+            "position_threshold": position_threshold,
+            "orientation_threshold": orientation_threshold,
+            "failed_thresholds": failed_thresholds,
+        }
     
     def sample_random_config(self) -> np.ndarray:
         return np.random.uniform(self.joint_limits_low, self.joint_limits_high)
@@ -152,18 +200,42 @@ class RRTStar(BaseMotionPlanner):
             max_iterations = self.max_iterations
         
         if not self.env.is_collision_free(start_config):
+            self._set_plan_failure(
+                "rrt",
+                "start_config_in_collision",
+                max_iterations=max_iterations,
+                iterations_used=0,
+                start_config=start_config.copy(),
+                collision=getattr(self.env, "last_collision", None),
+            )
             return None
 
         if not self.env.is_collision_free(goal_config):
+            self._set_plan_failure(
+                "rrt",
+                "goal_config_in_collision",
+                max_iterations=max_iterations,
+                iterations_used=0,
+                collision=getattr(self.env, "last_collision", None),
+            )
             return None
 
         start_node = Node(start_config)
         tree = [start_node]
         goal_node = None
+        collision_rejections = 0
+        goal_connection_rejections = 0
+        goal_samples = 0
+        nodes_added = 0
+        best_goal_distance = float(self.distance(start_config, goal_config))
+        last_collision_rejection = None
+        iterations_used = 0
         
         for iteration in range(max_iterations):
+            iterations_used = iteration + 1
             # Sample configuration
             if np.random.random() < self.goal_sample_rate:
+                goal_samples += 1
                 random_config = goal_config.copy()
             else:
                 random_config = self.sample_random_config()
@@ -172,6 +244,8 @@ class RRTStar(BaseMotionPlanner):
             new_config = self.steer(nearest.config, random_config)
             
             if not self.is_path_collision_free(nearest.config, new_config):
+                collision_rejections += 1
+                last_collision_rejection = getattr(self.env, "last_collision", None)
                 continue
             
             new_node = Node(new_config)
@@ -188,7 +262,12 @@ class RRTStar(BaseMotionPlanner):
             
             new_node = self.choose_parent(new_node, near)
             tree.append(new_node)
+            nodes_added += 1
             self.rewire(tree, new_node, near)
+            best_goal_distance = min(
+                best_goal_distance,
+                float(self.distance(new_config, goal_config)),
+            )
             
             # Check goal
             if self.distance(new_config, goal_config) < self.goal_threshold:
@@ -199,11 +278,40 @@ class RRTStar(BaseMotionPlanner):
                     new_node.children.append(goal_node)
                     tree.append(goal_node)
                     break
+                goal_connection_rejections += 1
+                last_collision_rejection = getattr(self.env, "last_collision", None)
         
         if goal_node is None:
+            self._set_plan_failure(
+                "rrt",
+                "failed_to_connect_goal",
+                max_iterations=max_iterations,
+                iterations_used=iterations_used,
+                nodes_added=nodes_added,
+                tree_size=len(tree),
+                collision_rejections=collision_rejections,
+                goal_connection_rejections=goal_connection_rejections,
+                goal_samples=goal_samples,
+                start_goal_distance=float(self.distance(start_config, goal_config)),
+                best_goal_distance=best_goal_distance,
+                last_collision_rejection=last_collision_rejection,
+            )
             return None
 
-        return self._extract_path(goal_node)
+        path = self._extract_path(goal_node)
+        self._set_plan_success(
+            "rrt",
+            max_iterations=max_iterations,
+            iterations_used=iterations_used,
+            nodes_added=nodes_added,
+            tree_size=len(tree),
+            collision_rejections=collision_rejections,
+            goal_connection_rejections=goal_connection_rejections,
+            goal_samples=goal_samples,
+            path_length=len(path),
+            path_cost=float(self.get_path_cost(path)),
+        )
+        return path
     
     def _extract_path(self, goal_node: Node) -> List[np.ndarray]:
         path = []
@@ -238,7 +346,7 @@ class RRTStar(BaseMotionPlanner):
         target_quat: np.ndarray,
         dt: float = 0.01,
         max_iterations: Optional[int] = None,
-        max_ik_retries: int = 3
+        max_ik_retries: int = 8
     ) -> Optional[List[np.ndarray]]:
         """Plan a path to reach a target end-effector pose.
         
@@ -252,7 +360,12 @@ class RRTStar(BaseMotionPlanner):
         Returns:
             Path as list of configurations, or None if planning failed
         """
+        self._reset_plan_diagnostics()
         start_config = self.data.qpos[:7].copy()
+        ik_failures = []
+        rrt_failures = []
+        ik_successes = 0
+
         
         # Try IK with progressive fallback strategy
         for attempt in range(max_ik_retries):
@@ -266,7 +379,8 @@ class RRTStar(BaseMotionPlanner):
                 neutral_config = (self.joint_limits_low + self.joint_limits_high) / 2.0
                 
                 # Move progressively toward neutral config
-                alpha = 0.3 * attempt  # Move 30%, 60%, 90% etc.
+
+                alpha = attempt / max(1, max_ik_retries - 1)
                 fallback_config = (1 - alpha) * start_config + alpha * neutral_config
                 
                 # Temporarily move the robot in simulation
@@ -279,6 +393,7 @@ class RRTStar(BaseMotionPlanner):
             self.ik.set_target_position(target_pos, target_quat)
             
             if self.ik.converge_ik(dt):
+                ik_successes += 1
                 goal_config = self.ik.configuration.q[:7].copy()
 
                 # Restore original configuration before planning
@@ -290,11 +405,58 @@ class RRTStar(BaseMotionPlanner):
                 # joint-space configurations with very different reachability).
                 path = self.plan(start_config, goal_config, max_iterations)
                 if path is not None:
+                    self._set_plan_success(
+                        "plan_to_pose",
+                        ik_attempt=attempt,
+                        ik_successes=ik_successes,
+                        target_pos=target_pos.copy(),
+                        target_quat=target_quat.copy(),
+                        goal_config=goal_config.copy(),
+                        path_length=len(path),
+                        rrt_stats=self.last_plan_stats,
+                    )
                     return path
+                rrt_failures.append({
+                    "attempt": attempt,
+                    "goal_config": goal_config.copy(),
+                    "planner_failure": (
+                        self.last_plan_failure.copy()
+                        if self.last_plan_failure is not None
+                        else None
+                    ),
+                })
+            else:
+                ik_failures.append({
+                    "attempt": attempt,
+                    #"target_pos": target_pos.copy(),
+                    #"target_quat": target_quat.copy(),
+                    **self._get_ik_error_details(),
+                })
 
         # Restore original configuration
         self.data.qpos[:7] = start_config
         mujoco.mj_forward(self.model, self.data)
+
+        if ik_successes > 0:
+            self._set_plan_failure(
+                "plan_to_pose",
+                "ik_succeeded_but_rrt_failed",
+                attempts=max_ik_retries,
+                ik_successes=ik_successes,
+                ik_failures=ik_failures,
+                rrt_failures=rrt_failures,
+                #target_pos=target_pos.copy(),
+                #target_quat=target_quat.copy(),
+            )
+        else:
+            self._set_plan_failure(
+                "ik",
+                "ik_failed_all_attempts",
+                attempts=max_ik_retries,
+                ik_failures=ik_failures,
+                #target_pos=target_pos.copy(),
+                #target_quat=target_quat.copy(),
+            )
 
         return None
     

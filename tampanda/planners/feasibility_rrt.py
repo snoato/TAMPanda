@@ -298,7 +298,7 @@ class FeasibilityRRT:
                 self.env.ik.update_configuration(self.env.data.qpos)
             else:
                 neutral  = (self.joint_limits_low + self.joint_limits_high) / 2.0
-                alpha    = 0.3 * attempt
+                alpha    = attempt / max(1, max_ik_retries - 1)
                 fallback = (1.0 - alpha) * start_config + alpha * neutral
                 self.env.data.qpos[:7] = fallback
                 mujoco.mj_forward(self.env.model, self.env.data)

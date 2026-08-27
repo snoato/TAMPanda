@@ -26,10 +26,29 @@ Typical usage:
 
 import numpy as np
 import mujoco
-from typing import Optional
+from typing import Any, Callable, Dict, Optional
 
 from tampanda.planners.grasp_planner import GraspPlanner, GraspCandidate, GRASP_CONTACT_OFFSET
 from tampanda.controllers.position_controller import ControllerStatus
+
+
+GRASP_ORDER = {
+    "top_down_x": 0,
+    "top_down_y": 1,
+    "top_down_45": 2,
+    "top_down_135": 3,
+    "front": 4,
+}
+
+
+def _sort_candidates(candidates):
+    return sorted(
+        list(candidates),
+        key=lambda cand: GRASP_ORDER.get(
+            getattr(cand.grasp_type, "value", cand.grasp_type),
+            len(GRASP_ORDER),
+        ),
+    )
 
 
 class PickPlaceExecutor:
@@ -49,6 +68,8 @@ class PickPlaceExecutor:
         place_step_size: Joint-space step for placement descent.
         retreat_step_size: Joint-space step for post-place retreat.
         max_plan_iters: RRT max iterations for each planning call.
+        max_ik_retries: IK seed attempts for each end-effector pose.
+        plan_dt: IK integration timestep passed into RRTStar.plan_to_pose.
         arm_settle_vel: qvel norm threshold — arm considered settled below this.
         gripper_start_vel: qvel[7] threshold — gripper started closing above this.
         gripper_stop_vel: qvel[7] threshold — gripper fully closed below this.
@@ -68,11 +89,14 @@ class PickPlaceExecutor:
         place_step_size: float = 0.003,
         retreat_step_size: float = 0.01,
         max_plan_iters: int = 2000,
+        max_ik_retries: int = 8,
+        plan_dt: float = 0.005,
         arm_settle_vel: float = 0.01,
         gripper_start_vel: float = 0.0005,
         gripper_stop_vel: float = 0.0001,
         settle_steps: int = 80,
         use_attachment: bool = True,
+        planning_trace_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ):
         self.env = env
         self.planner = planner
@@ -83,20 +107,33 @@ class PickPlaceExecutor:
         self.place_step_size    = place_step_size
         self.retreat_step_size  = retreat_step_size
         self.max_plan_iters     = max_plan_iters
+        self.max_ik_retries     = max_ik_retries
+        self.plan_dt            = plan_dt
         self.arm_settle_vel     = arm_settle_vel
         self.gripper_start_vel  = gripper_start_vel
         self.gripper_stop_vel   = gripper_stop_vel
         self.settle_steps       = settle_steps
         self.use_attachment     = use_attachment
+        self.planning_trace_callback = planning_trace_callback
+        self.planning_trace_context: Dict[str, Any] = {}
+        self._planning_trace_index = 0
+        self.last_failure = None
+        self.last_warning = None
+        self.failure_history = []
 
         self._ee_site_id = mujoco.mj_name2id(
             env.model, mujoco.mjtObj.mjOBJ_SITE, "attachment_site"
         )
         self._last_grasp_quat: Optional[np.ndarray] = None
+        self.last_grasp_ee_error_mm: Optional[float] = None
+        self.grasp_ee_error_history = []
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def set_planning_trace_context(self, **context):
+        self.planning_trace_context = dict(context)
 
     def pick(
         self,
@@ -123,12 +160,25 @@ class PickPlaceExecutor:
 
         Returns True on success, False if all candidates were exhausted.
         """
+        self._reset_diagnostics()
+        self.last_grasp_ee_error_mm = None
         if candidates is None:
+            object_shape = "sphere" if block_name.startswith("ball_") else None
             candidates = self.grasp_planner.generate_candidates(
-                block_pos, half_size, block_quat
+                block_pos,
+                half_size,
+                block_quat,
+                object_shape=object_shape,
             )
+        candidates = _sort_candidates(candidates)
         if not candidates:
             print(f"[PickPlaceExecutor] No grasp candidates for {block_name}")
+            self._set_failure(
+                "pick",
+                "grasp_generation",
+                "no_grasp_candidates",
+                block_name=block_name,
+            )
             return False
 
         for i, cand in enumerate(candidates):
@@ -136,25 +186,55 @@ class PickPlaceExecutor:
                   f"{cand.grasp_type.value}")
 
             # 1. Approach
-            path = self.planner.plan_to_pose(
+            path = self._plan_to_pose_with_trace(
                 cand.approach_pos, cand.grasp_quat,
-                dt=0.005, max_iterations=self.max_plan_iters,
+                high_level_action="pick",
+                phase="approach",
+                candidate_index=i + 1,
+                total_candidates=len(candidates),
+                grasp_type=cand.grasp_type.value,
+                block_name=block_name,
             )
             if path is None:
                 print("  approach plan failed — next candidate")
+                self._set_failure(
+                    "pick",
+                    "approach",
+                    "approach_plan_failed",
+                    block_name=block_name,
+                    candidate_index=i + 1,
+                    total_candidates=len(candidates),
+                    grasp_type=cand.grasp_type.value,
+                    planner_failure=getattr(self.planner, "last_plan_failure", None),
+                )
                 continue
             self.env.execute_path(path, self.planner, step_size=self.approach_step_size)
             self.env.wait_idle(settle_steps=self.settle_steps)
 
             # 2. Grasp descent (block not an obstacle)
             self.env.add_collision_exception(block_name)
-            path = self.planner.plan_to_pose(
+            path = self._plan_to_pose_with_trace(
                 cand.grasp_pos, cand.grasp_quat,
-                dt=0.005, max_iterations=self.max_plan_iters,
+                high_level_action="pick",
+                phase="grasp_descent",
+                candidate_index=i + 1,
+                total_candidates=len(candidates),
+                grasp_type=cand.grasp_type.value,
+                block_name=block_name,
             )
             if path is None:
                 print("  grasp descent plan failed — next candidate")
                 self.env.remove_collision_exception(block_name)
+                self._set_failure(
+                    "pick",
+                    "grasp_descent",
+                    "grasp_descent_plan_failed",
+                    block_name=block_name,
+                    candidate_index=i + 1,
+                    total_candidates=len(candidates),
+                    grasp_type=cand.grasp_type.value,
+                    planner_failure=getattr(self.planner, "last_plan_failure", None),
+                )
                 continue
             self.env.execute_path(path, self.planner, step_size=self.grasp_step_size)
             self.env.wait_idle(settle_steps=self.settle_steps)
@@ -163,6 +243,12 @@ class PickPlaceExecutor:
             self._wait_arm_settle()
             ee_pos = self.env.data.site_xpos[self._ee_site_id].copy()
             err_mm = np.linalg.norm(ee_pos - cand.grasp_pos) * 1000
+            self.last_grasp_ee_error_mm = float(err_mm)
+            self.grasp_ee_error_history.append({
+                "candidate_index": i + 1,
+                "grasp_type": cand.grasp_type.value,
+                "ee_error_mm": float(err_mm),
+            })
             print(f"  EE error at grasp: {err_mm:.1f} mm")
 
             # 4. Close gripper, wait for full closure
@@ -174,12 +260,27 @@ class PickPlaceExecutor:
                 self.env.attach_object_to_ee(block_name)
 
             # 6. Lift
-            path = self.planner.plan_to_pose(
+            path = self._plan_to_pose_with_trace(
                 cand.lift_pos, cand.grasp_quat,
-                dt=0.005, max_iterations=self.max_plan_iters,
+                high_level_action="pick",
+                phase="lift",
+                candidate_index=i + 1,
+                total_candidates=len(candidates),
+                grasp_type=cand.grasp_type.value,
+                block_name=block_name,
             )
             if path is None:
                 print("  lift plan failed — next candidate")
+                self._set_failure(
+                    "pick",
+                    "lift",
+                    "lift_plan_failed",
+                    block_name=block_name,
+                    candidate_index=i + 1,
+                    total_candidates=len(candidates),
+                    grasp_type=cand.grasp_type.value,
+                    planner_failure=getattr(self.planner, "last_plan_failure", None),
+                )
                 self.env.detach_object()
                 self.env.remove_collision_exception(block_name)
                 self.env.controller.open_gripper()
@@ -189,9 +290,19 @@ class PickPlaceExecutor:
             self.env.wait_idle(settle_steps=self.settle_steps)
 
             self._last_grasp_quat = cand.grasp_quat.copy()
+            self.last_failure = None
             print(f"  pick SUCCESS")
             return True
 
+        last_candidate_failure = self.last_failure
+        self._set_failure(
+            "pick",
+            "all_candidates",
+            "all_candidates_exhausted",
+            block_name=block_name,
+            total_candidates=len(candidates),
+            last_candidate_failure=last_candidate_failure,
+        )
         print(f"[PickPlaceExecutor] All {len(candidates)} candidates exhausted for {block_name}")
         return False
 
@@ -203,6 +314,9 @@ class PickPlaceExecutor:
         target_block_name: Optional[str] = None,
         approach_height: float = 0.15,
         place_clearance: float = 0.003,
+        candidate_index: Optional[int] = None,
+        total_candidates: Optional[int] = None,
+        grasp_type: Optional[str] = None,
     ) -> bool:
         """Execute a blocking place sequence.
 
@@ -230,8 +344,16 @@ class PickPlaceExecutor:
 
         Returns True on success.
         """
+        self._reset_diagnostics()
         if ee_quat is None:
             if self._last_grasp_quat is None:
+                self._set_failure(
+                    "place",
+                    "orientation",
+                    "missing_ee_quat",
+                    block_name=block_name,
+                    target_block_name=target_block_name,
+                )
                 raise ValueError(
                     "ee_quat must be provided if no prior pick has been executed"
                 )
@@ -250,12 +372,29 @@ class PickPlaceExecutor:
             self.env.add_collision_exception(target_block_name)
 
         # 1. Approach above placement (attachment still active — block rides along)
-        path = self.planner.plan_to_pose(
+        path = self._plan_to_pose_with_trace(
             ee_approach, ee_quat,
-            dt=0.005, max_iterations=self.max_plan_iters,
+            high_level_action="place",
+            phase="approach",
+            candidate_index=candidate_index,
+            total_candidates=total_candidates,
+            grasp_type=grasp_type,
+            block_name=block_name,
+            target_block_name=target_block_name,
         )
         if path is None:
             print("[PickPlaceExecutor] place approach plan failed")
+            self._set_failure(
+                "place",
+                "approach",
+                "place_approach_plan_failed",
+                block_name=block_name,
+                target_block_name=target_block_name,
+                candidate_index=candidate_index,
+                total_candidates=total_candidates,
+                grasp_type=grasp_type,
+                planner_failure=getattr(self.planner, "last_plan_failure", None),
+            )
             self._clear_exceptions(block_name, target_block_name)
             return False
         self.env.execute_path(path, self.planner, step_size=self.approach_step_size)
@@ -266,12 +405,29 @@ class PickPlaceExecutor:
             self.env.detach_object()
 
         # 3. Descend to placement position
-        path = self.planner.plan_to_pose(
+        path = self._plan_to_pose_with_trace(
             ee_place, ee_quat,
-            dt=0.005, max_iterations=self.max_plan_iters,
+            high_level_action="place",
+            phase="descent",
+            candidate_index=candidate_index,
+            total_candidates=total_candidates,
+            grasp_type=grasp_type,
+            block_name=block_name,
+            target_block_name=target_block_name,
         )
         if path is None:
             print("[PickPlaceExecutor] place descent plan failed")
+            self._set_failure(
+                "place",
+                "descent",
+                "place_descent_plan_failed",
+                block_name=block_name,
+                target_block_name=target_block_name,
+                candidate_index=candidate_index,
+                total_candidates=total_candidates,
+                grasp_type=grasp_type,
+                planner_failure=getattr(self.planner, "last_plan_failure", None),
+            )
             self._clear_exceptions(block_name, target_block_name)
             return False
         self.env.execute_path(path, self.planner, step_size=self.place_step_size)
@@ -283,13 +439,28 @@ class PickPlaceExecutor:
 
         # 5. Retreat upward
         self._clear_exceptions(block_name, target_block_name)
-        path = self.planner.plan_to_pose(
+        path = self._plan_to_pose_with_trace(
             ee_approach, ee_quat,
-            dt=0.005, max_iterations=self.max_plan_iters,
+            high_level_action="place",
+            phase="retreat",
+            candidate_index=candidate_index,
+            total_candidates=total_candidates,
+            grasp_type=grasp_type,
+            block_name=block_name,
+            target_block_name=target_block_name,
         )
         if path is not None:
             self.env.execute_path(path, self.planner, step_size=self.retreat_step_size)
             self.env.wait_idle(settle_steps=self.settle_steps)
+        else:
+            self._set_warning(
+                "place",
+                "retreat",
+                "retreat_plan_failed",
+                block_name=block_name,
+                target_block_name=target_block_name,
+                planner_failure=getattr(self.planner, "last_plan_failure", None),
+            )
 
         print("[PickPlaceExecutor] place SUCCESS")
         return True
@@ -297,6 +468,38 @@ class PickPlaceExecutor:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _plan_to_pose_with_trace(self, target_pos, target_quat, **trace_context):
+        path = self.planner.plan_to_pose(
+            target_pos, target_quat,
+            dt=self.plan_dt, max_iterations=self.max_plan_iters,
+            max_ik_retries=self.max_ik_retries,
+        )
+
+        if self.planning_trace_callback is not None:
+            self._planning_trace_index += 1
+            event = {
+                **self.planning_trace_context,
+                **trace_context,
+                "plan_call_index": self._planning_trace_index,
+                "max_plan_iters": self.max_plan_iters,
+                "rrt_max_iterations_default": getattr(self.planner, "max_iterations", None),
+                "plan_dt": self.plan_dt,
+                "max_ik_retries": self.max_ik_retries,
+                "target_pos": target_pos.copy(),
+                "target_quat": target_quat.copy(),
+                "result": "success" if path is not None else "failure",
+                "planner_stats": getattr(self.planner, "last_plan_stats", None),
+                "planner_failure": getattr(self.planner, "last_plan_failure", None),
+            }
+            self.planning_trace_callback(event)
+
+        return path
+
+    def _reset_diagnostics(self):
+        self.last_failure = None
+        self.last_warning = None
+        self.failure_history = []
 
     def _wait_arm_settle(self, max_steps: int = 500):
         """Spin until joint velocity is below arm_settle_vel (or timeout)."""
@@ -330,3 +533,20 @@ class PickPlaceExecutor:
         self.env.remove_collision_exception(block_name)
         if target_block_name is not None:
             self.env.remove_collision_exception(target_block_name)
+
+    def _set_failure(self, action, phase, reason, **details):
+        self.last_failure = {
+            "action": action,
+            "phase": phase,
+            "reason": reason,
+            **details,
+        }
+        self.failure_history.append(self.last_failure)
+
+    def _set_warning(self, action, phase, reason, **details):
+        self.last_warning = {
+            "action": action,
+            "phase": phase,
+            "reason": reason,
+            **details,
+        }

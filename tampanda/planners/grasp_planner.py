@@ -30,11 +30,17 @@ FINGER_TIP_BELOW: float = 0.0226
 # Used for table-clearance checks in front-approach candidates.
 HAND_CAPSULE_RADIUS: float = 0.040
 
+# Spherical objects need a lower top-down contact than box objects; otherwise
+# the general table-clearance margin pushes the gripper above the useful equator.
+SPHERE_TABLE_CLEARANCE: float = 0.010
+
 
 class GraspType(Enum):
-    TOP_DOWN_X = "top_down_x"  # Approach from above; fingers close along world ±X
-    TOP_DOWN_Y = "top_down_y"  # Approach from above; fingers close along world ±Y
-    FRONT      = "front"       # Approach from −Y (robot side); fingers along world ±X
+    TOP_DOWN_X   = "top_down_x"    # Approach from above; fingers close along world ±X
+    TOP_DOWN_45  = "top_down_45"   # Approach from above; fingers close diagonally
+    TOP_DOWN_Y   = "top_down_y"    # Approach from above; fingers close along world ±Y
+    TOP_DOWN_135 = "top_down_135"  # Approach from above; fingers close diagonally
+    FRONT        = "front"         # Approach from −Y (robot side); fingers along world ±X
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +66,13 @@ _QUATS: dict = {
     GraspType.TOP_DOWN_Y: _QUAT_TOP_DOWN_Y,
     GraspType.FRONT:      _QUAT_FRONT,
 }
+
+_TOP_DOWN_TYPES = (
+    GraspType.TOP_DOWN_X,
+    GraspType.TOP_DOWN_45,
+    GraspType.TOP_DOWN_Y,
+    GraspType.TOP_DOWN_135,
+)
 # ---------------------------------------------------------------------------
 
 
@@ -105,6 +118,8 @@ class GraspPlanner:
         lift_height:          float = 0.20,
         table_z:              float = 0.27,
         table_clearance:      float = 0.025,
+        include_front:        bool = True,
+        include_diagonals:    bool = True,
     ):
         """
         Args:
@@ -113,11 +128,16 @@ class GraspPlanner:
             table_z:         World Z coordinate of the table surface.
             table_clearance: Minimum gap (m) between finger-tip bottom and table_z.
                              Should exceed the expected IK position error (~0.025 m).
+            include_front:   If True, include the side/front grasp candidate.
+            include_diagonals:
+                             If True, add diagonal top-down finger orientations.
         """
         self.approach_dist   = float(approach_dist)
         self.lift_height     = float(lift_height)
         self.table_z         = float(table_z)
         self.table_clearance = float(table_clearance)
+        self.include_front   = bool(include_front)
+        self.include_diagonals = bool(include_diagonals)
 
     # ------------------------------------------------------------------
     # Public API
@@ -128,6 +148,7 @@ class GraspPlanner:
         block_pos:       np.ndarray,
         block_half_size: Optional[np.ndarray] = None,
         block_quat:      Optional[np.ndarray] = None,
+        object_shape:    Optional[str] = None,
     ) -> List[GraspCandidate]:
         """Return grasp candidates sorted best-first by score.
 
@@ -139,13 +160,36 @@ class GraspPlanner:
                              top-down finger axes are aligned with the block's
                              local X and Y axes, minimising the effective gripper
                              width needed.  Ignored for FRONT grasps.
+            object_shape:    Optional shape hint. Use "sphere" for balls so the
+                             planner uses sphere-specific width and clearance.
         """
         if block_half_size is None:
             block_half_size = np.array([0.02, 0.02, 0.02])
 
+        is_sphere = object_shape == "sphere"
+        if is_sphere:
+            block_quat = None
+
+        grasp_types = [GraspType.TOP_DOWN_X, GraspType.TOP_DOWN_Y]
+        if self.include_diagonals:
+            grasp_types = [
+                GraspType.TOP_DOWN_X,
+                GraspType.TOP_DOWN_45,
+                GraspType.TOP_DOWN_Y,
+                GraspType.TOP_DOWN_135,
+            ]
+        if self.include_front and not is_sphere:
+            grasp_types.append(GraspType.FRONT)
+
         candidates: List[GraspCandidate] = []
-        for gtype in (GraspType.TOP_DOWN_X, GraspType.TOP_DOWN_Y, GraspType.FRONT):
-            c = self._make_candidate(gtype, block_pos, block_half_size, block_quat)
+        for gtype in grasp_types:
+            c = self._make_candidate(
+                gtype,
+                block_pos,
+                block_half_size,
+                block_quat,
+                object_shape=object_shape,
+            )
             if c is not None:
                 c.score = self._score(c, block_pos)
                 candidates.append(c)
@@ -163,12 +207,15 @@ class GraspPlanner:
         block_pos:       np.ndarray,
         block_half_size: np.ndarray,
         block_quat:      Optional[np.ndarray] = None,
+        object_shape:    Optional[str] = None,
     ) -> Optional[GraspCandidate]:
+        is_sphere = object_shape == "sphere"
+
         # For top-down grasps, align the finger axis with the block's local
         # horizontal axes when the block orientation is known.  This ensures the
         # gripper closes along the block's body-X or body-Y, keeping the
         # effective width minimal even for yaw-rotated blocks.
-        if block_quat is not None and gtype in (GraspType.TOP_DOWN_X, GraspType.TOP_DOWN_Y):
+        if block_quat is not None and gtype in _TOP_DOWN_TYPES:
             R_block  = quat_to_rotmat(block_quat)
             # block_x_h / block_y_h: horizontal (XY) block axes, normalised
             block_x_h = R_block[:, 0].copy(); block_x_h[2] = 0.0
@@ -180,9 +227,15 @@ class GraspPlanner:
             else:
                 block_x_h /= nx; block_y_h /= ny
                 if gtype == GraspType.TOP_DOWN_X:
-                    finger_h = block_x_h   # close along block X
+                    finger_h = block_x_h
+                elif gtype == GraspType.TOP_DOWN_Y:
+                    finger_h = block_y_h
+                elif gtype == GraspType.TOP_DOWN_45:
+                    finger_h = block_x_h + block_y_h
+                    finger_h /= np.linalg.norm(finger_h)
                 else:
-                    finger_h = block_y_h   # close along block Y
+                    finger_h = -block_x_h + block_y_h
+                    finger_h /= np.linalg.norm(finger_h)
                 # Build rotation matrix: body-Y → finger_h, body-Z → -world-Z
                 approach_dir = np.array([0.0, 0.0, -1.0])    # hand Z in world
                 hand_y  = finger_h
@@ -193,7 +246,26 @@ class GraspPlanner:
                 # Convert rotation matrix to WXYZ quaternion
                 quat = self._rotmat_to_quat(R)
 
-        if block_quat is None or gtype == GraspType.FRONT:
+        if block_quat is None and gtype in _TOP_DOWN_TYPES:
+            yaw_by_type = {
+                GraspType.TOP_DOWN_X: 0.0,
+                GraspType.TOP_DOWN_45: np.pi / 4.0,
+                GraspType.TOP_DOWN_Y: np.pi / 2.0,
+                GraspType.TOP_DOWN_135: 3.0 * np.pi / 4.0,
+            }
+            finger_h = np.array([
+                np.cos(yaw_by_type[gtype]),
+                np.sin(yaw_by_type[gtype]),
+                0.0,
+            ])
+            approach_dir = np.array([0.0, 0.0, -1.0])
+            hand_y = finger_h
+            hand_z = approach_dir
+            hand_x = np.cross(hand_y, hand_z)
+            hand_x /= np.linalg.norm(hand_x)
+            R = np.column_stack([hand_x, hand_y, hand_z])
+            quat = self._rotmat_to_quat(R)
+        elif gtype == GraspType.FRONT:
             quat = _QUATS[gtype]
             R    = quat_to_rotmat(quat)
 
@@ -201,7 +273,9 @@ class GraspPlanner:
         # Project the rotated block bounding box onto the finger axis to get
         # the true effective width (accounts for yaw-rotated blocks).
         finger_axis_world = R[:, 1]
-        if block_quat is not None and gtype in (GraspType.TOP_DOWN_X, GraspType.TOP_DOWN_Y):
+        if is_sphere:
+            block_width_in_finger_dir = 2.0 * float(np.max(block_half_size))
+        elif block_quat is not None and gtype in _TOP_DOWN_TYPES:
             R_block = quat_to_rotmat(block_quat)
             # Support function: max projection of any vertex onto finger_axis
             half = block_half_size
@@ -225,8 +299,11 @@ class GraspPlanner:
         # Finger tips extend FINGER_TIP_BELOW metres below the attachment_site.
         # If the IK error pushes the EE down, those tips can collide with the table.
         # Raise grasp_pos.z so that even with IK error there is table_clearance margin.
-        if gtype in (GraspType.TOP_DOWN_X, GraspType.TOP_DOWN_Y):
-            min_grasp_z = self.table_z + FINGER_TIP_BELOW + self.table_clearance
+        if gtype in _TOP_DOWN_TYPES:
+            table_clearance = (
+                SPHERE_TABLE_CLEARANCE if is_sphere else self.table_clearance
+            )
+            min_grasp_z = self.table_z + FINGER_TIP_BELOW + table_clearance
             if grasp_pos[2] < min_grasp_z:
                 # Check the raised contact point is still within the block.
                 raised_contact_z = min_grasp_z + hand_z_world[2] * GRASP_CONTACT_OFFSET
@@ -299,7 +376,7 @@ class GraspPlanner:
         score = 0.0
 
         # Top-down grasps are more stable for objects on flat surfaces.
-        if c.grasp_type in (GraspType.TOP_DOWN_X, GraspType.TOP_DOWN_Y):
+        if c.grasp_type in _TOP_DOWN_TYPES:
             score += 20.0
 
         # Prefer approach positions comfortably inside robot workspace.

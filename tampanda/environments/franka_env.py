@@ -73,6 +73,7 @@ class FrankaEnvironment(RobotArmEnvironment):
         self._collision_exception_ids = set()
 
         self.collision_exceptions = []
+        self.last_collision = None
 
         # Enable contact detection and add a clearance margin for the lower-arm
         # collision geoms (link5/6/7).  In base_panda.xml the collision class
@@ -199,6 +200,8 @@ class FrankaEnvironment(RobotArmEnvironment):
 
     def check_collisions(self) -> bool:
         """Check for collisions using cached body IDs for fast lookup."""
+        self.last_collision = None
+
         if self.data.ncon == 0:
             return True
             
@@ -220,9 +223,31 @@ class FrankaEnvironment(RobotArmEnvironment):
                 continue
                 
             if contact.dist < 0.001:  # flag within 2 mm of margin window
+                self.last_collision = self._contact_diagnostic(contact, body1, body2)
                 return False
                 
         return True
+
+    def _contact_diagnostic(self, contact, body1: int, body2: int) -> dict:
+        geom1_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom1)
+        geom2_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom2)
+        body1_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY, body1)
+        body2_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY, body2)
+
+        return {
+            "geom1": geom1_name,
+            "geom2": geom2_name,
+            "body1": body1_name,
+            "body2": body2_name,
+            "geom1_id": int(contact.geom1),
+            "geom2_id": int(contact.geom2),
+            "body1_id": int(body1),
+            "body2_id": int(body2),
+            "geom1_is_robot": body1 in self._collision_body_ids,
+            "geom2_is_robot": body2 in self._collision_body_ids,
+            "distance": float(contact.dist),
+            "position": contact.pos.copy(),
+        }
 
     def is_collision_free(self, configuration: np.ndarray) -> bool:
         qpos_save = self.data.qpos.copy()
