@@ -48,8 +48,14 @@ class PositionController(RobotArmController):
         self.status = ControllerStatus.IDLE
         self.trajectory = []   # compensated ctrl targets
         self._waypoints = []   # uncompensated joint targets (used for advance condition)
+        # Optional instance-level tolerance overrides.  ``None`` means "use the
+        # call-site default", so leaving them unset reproduces the historical
+        # behaviour exactly.  Callers that need a tighter gripper-settle
+        # tolerance (e.g. LouisPickPlaceExecutor) set them in their __init__.
+        self.delta = None
+        self.grasping_delta = None
 
-    def step(self, delta: float = None, grasping_delta: float = 0.3):
+    def step(self, delta: float = None, grasping_delta: float = None):
         # ``delta`` is the joint-space tolerance below which the
         # controller treats the current waypoint as "reached" and
         # advances.  An instance-level override lets callers pick a
@@ -59,7 +65,13 @@ class PositionController(RobotArmController):
         # following waypoints — fine for big sweeps, lethal for
         # fingertip-scale contact moves.
         if delta is None:
+            delta = self.delta
+        if delta is None:
             delta = getattr(self, "_advance_delta_override", 0.1)
+        if grasping_delta is None:
+            grasping_delta = self.grasping_delta
+        if grasping_delta is None:
+            grasping_delta = 0.3
         if self.status == ControllerStatus.IDLE:
             if self.trajectory:
                 self.status = ControllerStatus.MOVING
@@ -153,4 +165,3 @@ class PositionController(RobotArmController):
             return
         self.trajectory = trajectory
         self._waypoints = waypoints if waypoints is not None else []
-
