@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import contextlib
 import time
+import os
+import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import mujoco
@@ -202,14 +204,16 @@ def _lateral_front_blocked(occupied: set, cell_id: str) -> bool:
     ``check_collisions`` misses this clip — hence this symbolic
     fast-reject.
 
-    ASYMMETRIC: the hand over-reaches toward LOWER ix only.  Measured
-    clips reaching column 3:
-      * -x neighbour (col 1): -4 to -7 mm  → real clip, reject
-      * +x neighbour (col 5): -0.6 to +0.2 mm → within the ~2 mm
-        tolerance the system already allows → do NOT reject
-    A symmetric rule produces false negatives (it rejects the +x
-    graze) and breaks valid reference plans that leave a +x-neighbour
-    cube in place.  So only the ``ix - 2`` column is checked.
+    NOTE (2026-06-02): originally ASYMMETRIC (only the -x neighbour
+    ``ix - 2`` was checked).  Measured clips reaching column 3 were
+    -4 to -7 mm on the -x neighbour (col 1) vs only -0.6 to +0.2 mm on
+    the +x neighbour (col 5), so the +x graze was previously ignored.
+    We now check BOTH ``ix ± 2`` and treat the small +x graze as
+    blocking, to enforce *symmetric* occlusion: the intended task
+    requires clearing neighbour columns on both sides, and the
+    +x-lenient physics made the geometry too permissive (a deep grasp
+    could succeed with the +x column still full).  Reference plans that
+    relied on leaving a +x-neighbour cube in place must be regenerated.
 
     O(rows); no IK / physics.  ``False`` for non-interior / malformed.
     """
@@ -221,11 +225,49 @@ def _lateral_front_blocked(occupied: set, cell_id: str) -> bool:
         ix, iy = int(ix_str), int(iy_str)
     except ValueError:
         return False
-    ix_adj = ix - 2                        # -x neighbour cube column only
-    if ix_adj not in (1, 3, 5):
-        return False                       # no cube column on the -x side
-    for iy_prime in range(iy):             # rows 0 .. iy-1 (in front)
-        if f"{_INTERIOR_PREFIX}{ix_adj}_{iy_prime}" in occupied:
+    # SYMMETRIC (2026-06-02): check BOTH neighbour cube columns ix ± 2.
+    # The measured +x graze (~0.2 mm) is treated as blocking so the rule
+    # is omnidirectional — required for task comparability (a deep grasp
+    # must clear neighbour columns on both sides, matching the intended
+    # occlusion semantics rather than the +x-lenient measured physics).
+    for ix_adj in (ix - 2, ix + 2):
+        if ix_adj not in (1, 3, 5):
+            continue                       # no cube column on that side
+        for iy_prime in range(iy):         # rows 0 .. iy-1 (in front)
+            if f"{_INTERIOR_PREFIX}{ix_adj}_{iy_prime}" in occupied:
+                return True
+    return False
+
+
+_CELL_RE = re.compile(r"^shelf_(?:interior|top)__(\d+)_(\d+)$")
+
+
+def _side_by_side_no_gap(occupied: set, cell_id: str) -> bool:
+    """True iff placing at ``cell_id`` would leave two cubes side by side in the
+    SAME ROW with no gap between them.
+
+    DELIBERATE SEMANTIC RULE (Daniel, 2026-08-31), not a chain-exactness
+    optimisation -- the same category as the 2026-06-02 ``ix ± 2`` symmetric
+    change.  Two cubes touching laterally in one row is not properly feasible
+    physically; the fast checker previously allowed it, which was an oversight.
+
+    Why it went unnoticed: ``_column_front_blocked`` and ``_lateral_front_blocked``
+    both early-return for non-interior cells (the deck is "open from above"), and
+    the deck is where it bites.  The interior only ever populates cube columns
+    {1, 3, 5}, so neighbours differ by 2 and this rule is vacuous there; the deck
+    uses all 7 contiguous columns, i.e. HALF the pitch, so cubes can end up
+    touching.  The oracle independently avoided it by parking only in {0,2,4,6}.
+
+    Applied to PUT only: the point is to prevent the configuration from being
+    CREATED.  Retrieval from a pre-existing one stays the motion planner's call.
+    """
+    m = _CELL_RE.match(cell_id)
+    if not m:
+        return False
+    ix, iy = int(m.group(1)), int(m.group(2))
+    prefix = cell_id.rsplit("__", 1)[0] + "__"
+    for adj in (ix - 1, ix + 1):
+        if f"{prefix}{adj}_{iy}" in occupied:
             return True
     return False
 
@@ -278,6 +320,12 @@ def _prefilter_reject(
         return False
 
     # verb == "put"
+    # No two cubes side by side in the same row without a gap -- deliberate
+    # rule, see ``_side_by_side_no_gap``. Default ON; ACCESS19_NO_SIDE_BY_SIDE=0
+    # reproduces pre-rule numbers.
+    if os.environ.get("ACCESS19_NO_SIDE_BY_SIDE", "1") != "0" and \
+            _side_by_side_no_gap(occupied, cell_id):
+        return True
     # Must be holding the target object.
     if held != obj:
         return True
