@@ -125,6 +125,8 @@ class ObjectSpec:
     quat: List[float]                   # [w, x, y, z] — rotation in anchor frame when relative_to is set
     rgba: Optional[List[float]] = None  # [r, g, b, a] — applied to named geoms
     relative_to: Optional[str] = None  # name of anchor object; None means world frame
+    size: Optional[object] = None       # flat seq -> every geom's
+                                        # MuJoCo `size`; dict {geom: {size,pos}} -> per-geom
 
 
 @dataclass
@@ -154,6 +156,75 @@ def _euler_xyz_to_quat(euler_deg: List[float]) -> List[float]:
         cx * sy * cz + sx * cy * sz,
         cx * cy * sz - sx * sy * cz,
     ]
+
+
+def _geom_volume(elem):
+    """Volume of one MJCF primitive geom, from its `size` attribute. box|sphere|cylinder|capsule
+    cover every shape in scenes/templates/objects; anything else returns None so the caller can
+    refuse rather than silently mis-scale."""
+    import math
+    t = elem.get("type", "sphere")
+    s = [float(v) for v in (elem.get("size") or "").split()]
+    if not s:
+        return None
+    if t == "box" and len(s) >= 3:
+        return 8.0 * s[0] * s[1] * s[2]
+    if t == "sphere":
+        return 4.0 / 3.0 * math.pi * s[0] ** 3
+    if t in ("cylinder", "capsule") and len(s) >= 2:
+        v = math.pi * s[0] ** 2 * 2.0 * s[1]
+        if t == "capsule":
+            v += 4.0 / 3.0 * math.pi * s[0] ** 3
+        return v
+    return None
+
+
+def _apply_size_override(body, size):
+    """Rewrite geom sizes (and positions, dict form) and switch the body to constant density.
+
+    `size` is a flat sequence (applied to every named geom) or {geom_name: {"size":…, "pos":…}}.
+    Raises rather than guessing when a geom's volume is not computable or a named key is absent --
+    a silently un-scaled object is exactly the class of defect this change exists to remove.
+    """
+    geoms = [e for e in body.iter() if e.tag == "geom"]
+    if not geoms:
+        raise ValueError("size override: template has no geom")
+
+    old_vol = 0.0
+    for g in geoms:
+        v = _geom_volume(g)
+        if v is None:
+            raise ValueError(f"size override: cannot compute volume of geom "
+                             f"{g.get('name')!r} type={g.get('type')!r} size={g.get('size')!r}")
+        old_vol += v
+
+    inertial = body.find("inertial")
+    old_mass = float(inertial.get("mass")) if inertial is not None and inertial.get("mass") else None
+    density = (old_mass / old_vol) if (old_mass and old_vol > 0) else None
+
+    if isinstance(size, dict):
+        by_name = {g.get("name", ""): g for g in geoms}
+        missing = [k for k in size if k not in by_name]
+        if missing:
+            raise ValueError(f"size override: template has no geom(s) {missing}; "
+                             f"has {sorted(by_name)}")
+        for gname, ov in size.items():
+            g = by_name[gname]
+            if "size" in ov:
+                g.set("size", " ".join(f"{float(v):.6g}" for v in ov["size"]))
+            if "pos" in ov:
+                g.set("pos", " ".join(f"{float(v):.6g}" for v in ov["pos"]))
+    else:
+        vals = " ".join(f"{float(v):.6g}" for v in size)
+        for g in geoms:
+            g.set("size", vals)
+
+    # constant density: let MuJoCo recompute mass + inertia from the new geometry
+    if density is not None:
+        for g in geoms:
+            g.set("density", f"{density:.6g}")
+    if inertial is not None:
+        body.remove(inertial)
 
 
 class SceneBuilder:
@@ -290,6 +361,7 @@ class SceneBuilder:
         quat: Optional[List[float]] = None,
         rgba: Optional[List[float]] = None,
         relative_to: Optional[str] = None,
+        size: Optional[object] = None,
     ):
         """Add one object instance to the scene.
 
@@ -335,6 +407,7 @@ class SceneBuilder:
                 quat=list(quat),
                 rgba=list(rgba) if rgba is not None else None,
                 relative_to=relative_to,
+                size=size,
             )
         )
 
@@ -613,6 +686,8 @@ class SceneBuilder:
                 for elem in body.iter():
                     if elem.tag == "geom":
                         elem.set("rgba", " ".join(f"{v:.4g}" for v in spec.rgba))
+            if spec.size is not None:
+                _apply_size_override(body, spec.size)
             return body, extra_assets
 
         # ---- Fragment mode (existing behaviour) ----
@@ -620,6 +695,10 @@ class SceneBuilder:
         body.set("name", spec.name)
         body.set("pos", " ".join(f"{v:.6g}" for v in spec.pos))
         body.set("quat", " ".join(f"{v:.6g}" for v in spec.quat))
+
+        # --- size override ---
+        if spec.size is not None:
+            _apply_size_override(body, spec.size)
 
         # Rename all descendants whose name starts with "_":
         #   "_freejoint" → "{spec.name}_freejoint"
@@ -705,6 +784,7 @@ class SceneBuilder:
                 pos=world_pos,
                 quat=world_quat,
                 rgba=spec.rgba,
+                size=spec.size,
             )
             body, extra_assets = self._instantiate_object(resolved_spec)
             worldbody.append(body)
