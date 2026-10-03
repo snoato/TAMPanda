@@ -1,0 +1,301 @@
+"""Access-19 v2: transit planning between grasps with VAMP, validated against exact MuJoCo geometry (2026-10-02).
+
+For each cell (CROWDED scene): find the verified grasp (open-hand approach + held retreat, crowd.py), then plan
+  home -> start of the open-hand approach        (empty hand, target present)
+  end of the held retreat -> home                (object attached)
+with VAMP RRT-Connect (sphere robot model; shelf boxes as cuboids, cylinders as capsules whose caps end at the
+object top/bottom), simplify, interpolate, and re-check every interpolated configuration in MuJoCo with the exact
+collision meshes (clearance >= margin). VAMP is only the proposal mechanism; MuJoCo decides.
+
+    python -m tampanda.symbolic.domains.access19_v2.transit out.json cells=top:6_6;interior:3_6 [k=v ...]
+"""
+import json
+import sys
+import time
+
+import numpy as np
+import vamp
+
+from tampanda.kinematics import panda as P
+from tampanda.symbolic.domains.access19_v2 import crowd as C
+from tampanda.symbolic.domains.access19_v2 import verify as V
+
+VP = vamp.panda
+EE_FROM_SITE = 0.105 - V.ATTACH_OFFSET      # VAMP end effector (panda_grasptarget) = hand + 0.105 along z
+PAD = 0.01                                  # VAMP obstacle inflation: proposals keep ~1 cm away; MuJoCo decides
+
+
+def dp_path(sc, Ls, finger, held_local, g):
+    val = None; prev = None; back = []; cls = []
+    for Q in Ls:
+        if len(Q) == 0:
+            return None
+        cl = np.array([sc.clearance(q, finger, held_local)[0] for q in Q]); cls.append(cl)
+        if val is None:
+            val = cl
+        else:
+            jump = np.abs(Q[:, None, :] - prev[None, :, :]).max(2)
+            cand = np.where(jump <= g.max_dq, val[None, :], -np.inf)
+            j = cand.argmax(1); val = np.minimum(cand[np.arange(len(j)), j], cl); back.append(j)
+        prev = Q
+    finals = np.where(val >= g.margin)[0]
+    if not len(finals):
+        return None
+    out = []
+    for i in finals:
+        idx = [int(i)]
+        for j in reversed(back):
+            idx.append(int(j[idx[-1]]))
+        idx = idx[::-1]
+        out.append(([Ls[k][idx[k]] for k in range(len(Ls))], float(val[i])))
+    return out
+
+
+def grasp_paths(sc, cp, occ_open, occ_held):
+    g = sc.g
+    for key, (Lo, _) in cp.layers.items():
+        depth, qi, kind, var = key
+        if kind != "open":
+            continue
+        sc.occupy(occ_open); po = dp_path(sc, Lo, g.fo, None, g)
+        if not po:
+            continue
+        for kh, (Lh, hl) in cp.layers.items():
+            if kh[:3] != (depth, qi, "held"):
+                continue
+            sc.occupy(occ_held); ph = dp_path(sc, Lh, g.r, hl, g)
+            if not ph:
+                continue
+            for qo, so in po:
+                for qh, sh in ph:
+                    if np.abs(qo[-1] - qh[-1]).max() <= 0.1:
+                        return {"open": qo, "held": qh, "held_local": hl, "depth": depth, "quat": qi,
+                                "routes": var + kh[3], "clear": min(so, sh)}
+    return None
+
+
+
+def grasp_pairs(sc, cp, occ_open, occ_held):
+    """ALL feasible (open path, held path) pairs whose grasp configurations coincide (|dq| <= 0.1)."""
+    g = sc.g; out = []
+    for key, (Lo, _) in cp.layers.items():
+        depth, qi, kind, var = key
+        if kind != "open":
+            continue
+        sc.occupy(occ_open); po = dp_path(sc, Lo, g.fo, None, g)
+        if not po:
+            continue
+        for kh, (Lh, hl) in cp.layers.items():
+            if kh[:3] != (depth, qi, "held"):
+                continue
+            sc.occupy(occ_held); ph = dp_path(sc, Lh, g.r, hl, g)
+            if not ph:
+                continue
+            A = np.array([qo[-1] for qo, _ in po]); B = np.array([qh[-1] for qh, _ in ph])
+            for a, b in zip(*np.nonzero(np.abs(A[:, None, :] - B[None, :, :]).max(2) <= 0.1)):
+                (qo, so), (qh, sh) = po[a], ph[b]
+                out.append({"open": qo, "held": qh, "held_local": hl, "depth": depth, "quat": qi,
+                            "routes": var + kh[3], "clear": min(so, sh)})
+    return out
+
+
+def posture_cost(p, ref):
+    return float(np.linalg.norm(np.asarray(p["open"][0]) - ref) + np.linalg.norm(np.asarray(p["held"][0]) - ref))
+
+
+def grasp_candidates(sc, cp, occ_open, occ_held, ref, k=6, scan=60, diverse=0.3):
+    """Posture-aware grasp choice: feasible pairs ranked by distance of their outer configurations to the reference
+    posture (grasp_paths returns the first pair in IK enumeration order, i.e. an arbitrary arm configuration).
+    dp_path checks the path LAYERS only (1.5 cm apart, joint jumps up to max_dq), so a candidate must also be clear
+    when its approach and retreat are checked densely. Up to k candidates, mutually >= `diverse` rad apart (max-norm
+    of the approach start), so a caller whose transit fails on one can try a genuinely different arm configuration."""
+    ps = sorted(grasp_pairs(sc, cp, occ_open, occ_held), key=lambda p: posture_cost(p, ref))
+    out = []
+    for p in ps[:scan]:
+        q0 = np.asarray(p["open"][0])
+        if any(np.abs(q0 - np.asarray(o["open"][0])).max() < diverse for o in out):
+            continue
+        sc.occupy(occ_open); a = mj_check(sc, np.asarray(p["open"]), sc.g.fo, None, 0.0, step=0.005)[0]
+        sc.occupy(occ_held); b = a and mj_check(sc, np.asarray(p["held"]), sc.g.r, p["held_local"], 0.0, step=0.005)[0]
+        if b:
+            out.append(dict(p, dense_ok=True))
+            if len(out) >= k:
+                break
+    return out
+
+
+def grasp_paths_near(sc, cp, occ_open, occ_held, ref):
+    c = grasp_candidates(sc, cp, occ_open, occ_held, ref, k=1)
+    return c[0] if c else None
+
+
+def fit_reference(sc, q7, iters=8):
+    """One reference posture per geometry, so consecutive grasps use the same arm configuration family:
+    per cell all feasible pairs on the EMPTY shelf; iterate REF <- median of the per-cell choices (start: home);
+    keep the REF with the smallest mean interior<->top distance between the choices' outer held configurations."""
+    cands = {}
+    for key in sc.slots:
+        ps = grasp_pairs(sc, C.CellPaths(sc, *key, q7), {key}, set())
+        if ps:
+            cands[key] = np.array([np.concatenate([np.asarray(p["open"][0]), np.asarray(p["held"][0])]) for p in ps])
+    ref = P.Q_HOME.copy(); best = None
+    for _ in range(iters):
+        ch = {k: v[np.argmin(np.linalg.norm(v[:, :7] - ref, axis=1) + np.linalg.norm(v[:, 7:] - ref, axis=1))]
+              for k, v in cands.items()}
+        I = np.array([v[7:] for k, v in ch.items() if k[0] == "interior"])
+        T = np.array([v[7:] for k, v in ch.items() if k[0] == "top"])
+        score = float(np.linalg.norm(I[:, None, :] - T[None, :, :], axis=2).mean()) if len(I) and len(T) else 0.0
+        if best is None or score < best[0]:
+            best = (score, ref.copy())
+        ref = np.median(np.array([v[7:] for v in ch.values()]), axis=0)
+    return best[1], best[0]
+
+def vamp_env(sc, occupied, pad=0.0):
+    g = sc.g; env = vamp.Environment()
+    for name, lo, hi in sc.boxes:      # shelf boxes are exact: no padding (the robot base sits ~13 cm from the shelf)
+        env.add_cuboid(vamp.Cuboid(list((lo + hi) / 2), [0, 0, 0], list((hi - lo) / 2)))
+    for k in occupied:
+        lv, i, j = k; c = C.centre(g, lv, i, j); h = C.height(g, lv, j)
+        rad = g.r * (np.sqrt(2) if g.box else 1.0)      # a box's corners reach r*sqrt(2) from its axis
+        env.add_capsule(vamp.Cylinder([c[0], c[1], c[2] + h / 2], [0, 0, 0], rad + pad, max(h - 2 * rad, 1e-3)))
+    return env
+
+
+MIN_BACKOFF = 0.05                           # hand VAMP over at least this far out (the straight segment is exact-checked)
+
+
+def backoff(sc, q, R, direction, finger, held_local, env, q7, margin, step=0.01, max_d=0.30):
+    """Move the grasp site from q along `direction` (fixed hand orientation, analytic IK nearest to the previous
+    configuration, exact MuJoCo check) until VAMP accepts the configuration. Returns the joint segment."""
+    seg = [np.asarray(q, float)]
+    site0 = sc.site_T(q)[:3, 3]
+    for k in range(1, int(max_d / step) + 1):
+        if (k - 1) * step >= MIN_BACKOFF and VP.validate(np.asarray(seg[-1], np.float32), env):
+            return seg
+        T = np.eye(4); T[:3, :3] = R; T[:3, 3] = site0 + k * step * np.asarray(direction, float)
+        Q = C.ik_all(sc, T, q7)
+        stop = not len(Q)
+        if not stop:
+            d = np.abs(Q - seg[-1]).max(1); i = int(np.argmin(d))
+            stop = d[i] > 0.2 or sc.clearance(Q[i], finger, held_local)[0] < margin
+        if stop:   # cannot back off further: keep what we have if VAMP accepts it (start poses near reach limits)
+            return seg if VP.validate(np.asarray(seg[-1], np.float32), env) else None
+        seg.append(Q[i])
+    return seg if VP.validate(np.asarray(seg[-1], np.float32), env) else None
+
+
+def attach(env, sc, held_local, R_grasp):
+    """Held cylinder as spheres in the VAMP end-effector frame (same orientation as the site)."""
+    g = sc.g; local, hk = held_local; h = sc.heights[hk]
+    T = np.eye(4, dtype=np.float32); T[:3, 3] = local - np.array([0, 0, EE_FROM_SITE])
+    a = vamp.Attachment(np.asfortranarray(T))
+    axis = R_grasp.T @ np.array([0, 0, 1.0])          # object axis (world z) in the end-effector frame
+    rad = g.r * (np.sqrt(2) if g.box else 1.0)
+    n = max(2, int(np.ceil(h / rad)) + 1)
+    a.add_spheres([vamp.Sphere(list(axis * s), rad) for s in np.linspace(-h / 2 + rad, h / 2 - rad, n)])
+    env.attach(a)
+
+
+def mj_check(sc, Q, finger, held_local, margin, step=0.02):
+    """Dense exact-geometry check of a joint path; returns (ok, min clearance, first bad index)."""
+    worst = 1.0
+    for a, b in zip(Q[:-1], Q[1:]):
+        n = max(2, int(np.ceil(np.abs(b - a).max() / step)) + 1)
+        for t in np.linspace(0, 1, n):
+            cl, _ = sc.clearance(a + (b - a) * t, finger, held_local)
+            worst = min(worst, cl)
+            if cl < margin:
+                return False, worst
+    return True, worst
+
+
+def plan(start, goal, env, tries=4, seed=0):
+    rng = VP.halton() if seed == 0 else VP.xorshift()
+    for _ in range(seed):
+        rng.next() if hasattr(rng, "next") else None
+    s = vamp.RRTCSettings(); ss = vamp.SimplifySettings()
+    for _ in range(tries):
+        t0 = time.time(); r = VP.rrtc(np.asarray(start, np.float32), np.asarray(goal, np.float32), env, s, rng)
+        if r.solved:
+            r2 = VP.simplify(r.path, env, ss, rng)
+            p = r2.path; p.interpolate_to_resolution(VP.resolution())
+            return np.array(p.numpy(), float), time.time() - t0
+    return None, time.time() - t0
+
+
+def plan_validated(sc, start_seg_q, goal, occupied, held_local, R, finger, direction, q7, margin, reverse=False, step=0.02):
+    """VAMP proposal + exact check, retried with growing obstacle padding and different seeds."""
+    last = (None, (False, None), 0.0, None)
+    for pad in (PAD, 2 * PAD, 3 * PAD):
+        sc.occupy(occupied); env = vamp_env(sc, occupied, pad)
+        if held_local is not None:
+            attach(env, sc, held_local, R)
+        b = None
+        for dvec in (direction, (np.asarray(direction, float) + np.array([0, 0, 1.0])) / np.sqrt(2), [0, 0, 1], [0, -1, 0]):
+            b = backoff(sc, start_seg_q, R, dvec, finger, held_local, env, q7, margin)
+            if b:
+                break
+        if not b:
+            continue
+        for seed in range(3):
+            p, t = plan(b[-1], goal, env, seed=seed) if reverse else plan(goal, b[-1], env, seed=seed)
+            if p is None:
+                continue
+            full = np.vstack([np.array(b), p]) if reverse else np.vstack([p, np.array(b[::-1])])
+            sc.occupy(occupied)
+            ok = mj_check(sc, full, finger, held_local, margin, step=step)
+            last = (full, ok, t, len(b) - 1)
+            if ok[0]:
+                return full, ok, t, len(b) - 1, pad, seed
+    return last + (None, None)
+
+
+def main():
+    out = sys.argv[1]
+    kv = dict(a.split("=", 1) for a in sys.argv[2:] if "=" in a)
+    cells = kv.pop("cells"); margin_t = float(kv.pop("transit_margin", 0.002))
+    global PAD
+    PAD = float(kv.pop("pad", PAD))
+    scene_mode = kv.pop("scene", "crowded")      # "empty": only the target (Daniel's criterion, 2026-10-02)
+    g = C.Geo()
+    for k, v in kv.items():
+        cur = getattr(g, k)
+        setattr(g, k, tuple(float(x) for x in v.split(",")) if isinstance(cur, tuple) else type(cur)(v))
+    sc = C.Scene(g); allslots = set(sc.slots)
+    q7 = np.arange(P.Q_MIN[6] + 1e-3, P.Q_MAX[6], np.radians(g.q7_step_deg))
+    home = P.Q_HOME.copy()
+    res = {"geo": C.asdict(g), "cells": {}}
+    for spec in cells.split(";"):
+        lv, ij = spec.split(":"); i, j = map(int, ij.split("_")); lv = {"i": "interior", "t": "top"}[lv[0]]
+        key = (lv, i, j)
+        if key not in allslots:          # v1's excluded interior cells
+            continue
+        crowd = set() if scene_mode == "empty" else allslots - C.designed_blockers(g, lv, i, j) - {key}
+        cp = C.CellPaths(sc, lv, i, j, q7)
+        gp = grasp_paths(sc, cp, crowd | {key}, crowd)
+        row = {"grasp": gp is not None}
+        if gp:
+            R = V.quat_to_R(V.FRONT_QUATS[gp["quat"]])
+            out_dir = [0, -1, 0] if lv == "interior" else [0, 0, 1]
+            p1, ok1, t1, bo1, pad1, sd1 = plan_validated(sc, gp["open"][0], home, crowd | {key}, None, R, g.fo, out_dir,
+                                                        q7, margin_t)
+            p2, ok2, t2, bo2, pad2, sd2 = plan_validated(sc, gp["held"][0], home, crowd, gp["held_local"], R, g.r,
+                                                        out_dir, q7, margin_t, reverse=True)
+            row["backoff_cm"] = [bo1, bo2]; row["pad_seed"] = [(pad1, sd1), (pad2, sd2)]
+            row.update({"to_grasp": {"vamp": p1 is not None, "s": round(t1, 3), "mujoco_ok": ok1[0],
+                                     "min_clear": ok1[1], "n": 0 if p1 is None else len(p1)},
+                        "from_grasp": {"vamp": p2 is not None, "s": round(t2, 3), "mujoco_ok": ok2[0],
+                                       "min_clear": ok2[1], "n": 0 if p2 is None else len(p2)},
+                        "routes": gp["routes"], "grasp_clear": gp["clear"]})
+            if p1 is not None:
+                row["path_to"] = p1.tolist()
+            if p2 is not None:
+                row["path_from"] = p2.tolist()
+            row["open_path"] = [q.tolist() for q in gp["open"]]; row["held_path"] = [q.tolist() for q in gp["held"]]
+        res["cells"][spec] = row
+        print(spec, {k: v for k, v in row.items() if not k.endswith("path") and not k.startswith("path")}, flush=True)
+    json.dump(res, open(out, "w"), default=float)
+
+
+if __name__ == "__main__":
+    main()

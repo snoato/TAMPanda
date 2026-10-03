@@ -79,6 +79,8 @@ from tampanda.symbolic.domains.multilevel_blocks.templates import (
     cube_tower,
     double_bridges,
     long_pyramid,
+    mini_bridge_2pillars,
+    mini_tower_on_bridge,
     multi_tower,
     oblong_tower,
     random_mix,
@@ -149,6 +151,8 @@ _TEMPLATE_NAMES = (
     "simple_unstack_oblong_to_flat_y",  # L2 — primitive: make-flat-y-from-upright
     "simple_unstack_long_to_flat_x",    # L2 — primitive: make-long-flat-x-from-upright
     "simple_unstack_long_to_flat_y",    # L2 — primitive: make-long-flat-y-from-upright
+    "mini_bridge_2pillars",   # L3 — mini-L4 compositional bridge (9-action)
+    "mini_tower_on_bridge",   # L3 — mini-L4 + cube on top (11-action)
     "upright_bridges",     # L4
     "tower_on_bridge",     # L4
     "multi_tower",         # L5
@@ -185,7 +189,13 @@ _LEVELS: Dict[int, List[str]] = {
          "simple_unstack_oblong_to_flat_y",
          "simple_unstack_long_to_flat_x",
          "simple_unstack_long_to_flat_y"],
-    3: ["oblong_tower", "cube_tower"],                  # h=4, orient-change
+    # L3 mixes h=4 orientation-change towers with mini-L4 compositional
+    # bridges (1×3 footprint, 9-11 action plans).  Mini-L4 exposes the
+    # 5 L4 primitives (put-upright, make-upright-from-x, pick-long-x,
+    # turn-long-x-to-y, put-long-y) in shorter plans before they appear
+    # in L4's denser 3×3 compositions.
+    3: ["oblong_tower", "cube_tower",
+         "mini_bridge_2pillars", "mini_tower_on_bridge"],
     4: ["upright_bridges", "tower_on_bridge"],          # FULL executor only
     5: ["multi_tower", "staircase", "compound", "double_bridges"],
 }
@@ -202,16 +212,19 @@ _LEVELS: Dict[int, List[str]] = {
 _FULL_EXECUTOR_LEVELS: set = set()
 
 # Curriculum-spec presets.  Each preset is a list of (level, count) tuples.
-# train_600 distribution: 60, 120, 120, 120, 90, 90 = 600.
+# train_600 actual distribution post-mini-L4: 60, 120, 120, 160, 90, 90 = 640.
+# L3 quota bumped 120 → 160 to give the 4 L3 templates (oblong_tower,
+# cube_tower, mini_bridge_2pillars, mini_tower_on_bridge) ~40 problems each.
+# Name "train_600" preserved for backward compatibility with existing SLURM
+# scripts; actual generated count is now 640.
 _CURRICULA: Dict[str, List[Tuple[int, int]]] = {
-    "train_600": [(0, 60), (1, 120), (2, 120), (3, 120), (4, 90), (5, 90)],
+    "train_600": [(0, 60), (1, 120), (2, 120), (3, 160), (4, 90), (5, 90)],
     "train_400": [(0, 40), (1, 80), (2, 80), (3, 80), (4, 60), (5, 60)],
     "train_200": [(0, 20), (1, 40), (2, 40), (3, 40), (4, 30), (5, 30)],
     # train_l0_l4: L5 held out for OOD evaluation.  L0/L1 counts bumped
-    # (140/160) to accommodate the expanded primitive-exposure template
-    # set — each new template gets ~20 problems, similar to the legacy
-    # cube_pick_put / cube_tower counts.
-    "train_l0_l4": [(0, 140), (1, 160), (2, 120), (3, 120), (4, 90)],
+    # (140/160) for the primitive-exposure template set; L3 bumped (120 →
+    # 160) for mini-L4 templates.  Actual count post-mini-L4: 670.
+    "train_l0_l4": [(0, 140), (1, 160), (2, 120), (3, 160), (4, 90)],
     "val_per_level": [(k, 20) for k in range(6)],
     "test_per_level": [(k, 20) for k in range(6)],
 }
@@ -908,6 +921,24 @@ def _sample_template(
         ix = int(rng.integers(1, cells_x - 3))
         iy = _safe_iy(rng, cfg, max_iy_cap=cells_y - 2)
         return long_pyramid(ix, iy, cfg=cfg)
+
+    if choice == "mini_bridge_2pillars":
+        # 1×3 footprint at column ix, ys [iy..iy+2].  Bias toward
+        # left-half ix where put-upright is reliable in fast mode.
+        if rng.random() < 0.85:
+            ix = int(rng.integers(1, 5))
+        else:
+            ix = int(rng.integers(5, cells_x - 1))
+        iy = _safe_iy(rng, cfg, max_iy_cap=cells_y - 4)
+        return mini_bridge_2pillars(ix, iy, cfg=cfg)
+
+    if choice == "mini_tower_on_bridge":
+        if rng.random() < 0.85:
+            ix = int(rng.integers(1, 5))
+        else:
+            ix = int(rng.integers(5, cells_x - 1))
+        iy = _safe_iy(rng, cfg, max_iy_cap=cells_y - 4)
+        return mini_tower_on_bridge(ix, iy, cfg=cfg)
 
     if choice == "upright_bridges":
         ix = int(rng.integers(1, cells_x - 4))

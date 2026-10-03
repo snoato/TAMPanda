@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from tampanda.planners.grasp_planner import GraspPlanner, GraspType
+from tampanda.planners.grasp_planner import GraspPlanner, GraspType, quat_to_rotmat
 from tampanda.planners.linear_ik import LinearIKPlanner
 from tampanda.planners.pick_place import PickPlaceExecutor
 from tampanda.planners.rrt_star import RRTStar
@@ -94,6 +94,35 @@ class ConfinedShelfExecutor(PickPlaceExecutor):
     Only the defaults change; the placement logic is the shared
     implementation.
     """
+
+    # Distance (m) to retreat the held cylinder straight back out of the
+    # shelf after a successful grasp, BEFORE any lateral/column-alignment
+    # move. Without it the subsequent put plans its approach from inside
+    # the shelf depth and the held cylinder sweeps laterally through a
+    # neighbouring column, knocking it over.
+    post_pick_retreat: float = 0.20
+
+    def pick(self, block_name, block_pos, half_size, block_quat,
+             candidates=None) -> bool:
+        if not super().pick(block_name, block_pos, half_size, block_quat,
+                            candidates):
+            return False
+        # FRONT grasp hand -z points +y (into the shelf); pull straight
+        # back along -y until the held cylinder clears the open face, so
+        # the next action aligns with its column entirely outside the shelf.
+        ee_pos = self.env.data.site_xpos[self._ee_site_id].copy()
+        quat = self._last_grasp_quat
+        hand_z = quat_to_rotmat(quat)[:, 2]
+        target = ee_pos - hand_z * self.post_pick_retreat
+        path = self.linear_ik_planner.plan_joint_lerp(target, quat, dt=0.005)
+        if path is None:
+            path = self.linear_ik_planner.plan_to_pose(
+                target, quat, dt=0.005, slerp_orientation=False)
+        if path is not None:
+            self.env.execute_path(path, self.planner,
+                                  step_size=self.approach_step_size)
+            self.env.wait_idle(settle_steps=self.settle_steps)
+        return True
 
     def place(self, block_name, place_block_center, ee_quat=None,
               target_block_name=None, approach_height: float = 0.08,

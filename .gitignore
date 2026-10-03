@@ -66,3 +66,7 @@ slurm/
 
 CLAUDE.md
 AGENTS.md
+
+# scene builders write temporary MJCF files into the assets dir at runtime
+tampanda/environments/assets/franka_emika_panda/tmp*.xml
+*.bak_[0-9]*

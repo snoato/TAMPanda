@@ -1,0 +1,1556 @@
+{
+ "format": 1,
+ "domain": "confined-shelf",
+ "kind": "honest grasp library (access19_v2 construction, real arm meshes)",
+ "margin": 0.002,
+ "held_lift": 0.015,
+ "bits": [
+  "shelf_interior__0_0",
+  "shelf_interior__0_1",
+  "shelf_interior__0_2",
+  "shelf_interior__0_3",
+  "shelf_interior__1_0",
+  "shelf_interior__1_1",
+  "shelf_interior__1_2",
+  "shelf_interior__1_3",
+  "shelf_interior__2_0",
+  "shelf_interior__2_1",
+  "shelf_interior__2_2",
+  "shelf_interior__2_3",
+  "shelf_interior__3_0",
+  "shelf_interior__3_1",
+  "shelf_interior__3_2",
+  "shelf_interior__3_3",
+  "shelf_interior__4_0",
+  "shelf_interior__4_1",
+  "shelf_interior__4_2",
+  "shelf_interior__4_3",
+  "shelf_interior__5_0",
+  "shelf_interior__5_1",
+  "shelf_interior__5_2",
+  "shelf_interior__5_3",
+  "shelf_interior__6_0",
+  "shelf_interior__6_1",
+  "shelf_interior__6_2",
+  "shelf_interior__6_3",
+  "shelf_interior__7_0",
+  "shelf_interior__7_1",
+  "shelf_interior__7_2",
+  "shelf_interior__7_3",
+  "shelf_interior__8_0",
+  "shelf_interior__8_1"
+ ],
+ "centres": {
+  "shelf_interior__0_0": [
+   0.17,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__0_1": [
+   0.17,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__0_2": [
+   0.17,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__0_3": [
+   0.17,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__1_0": [
+   0.24,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__1_1": [
+   0.24,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__1_2": [
+   0.24,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__1_3": [
+   0.24,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__2_0": [
+   0.31,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__2_1": [
+   0.31,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__2_2": [
+   0.31,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__2_3": [
+   0.31,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__3_0": [
+   0.38,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__3_1": [
+   0.38,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__3_2": [
+   0.38,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__3_3": [
+   0.38,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__4_0": [
+   0.45,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__4_1": [
+   0.45,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__4_2": [
+   0.45,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__4_3": [
+   0.45,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__5_0": [
+   0.52,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__5_1": [
+   0.52,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__5_2": [
+   0.52,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__5_3": [
+   0.52,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__6_0": [
+   0.59,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__6_1": [
+   0.59,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__6_2": [
+   0.59,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__6_3": [
+   0.59,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__7_0": [
+   0.66,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__7_1": [
+   0.66,
+   0.365,
+   0.512
+  ],
+  "shelf_interior__7_2": [
+   0.66,
+   0.435,
+   0.512
+  ],
+  "shelf_interior__7_3": [
+   0.66,
+   0.505,
+   0.512
+  ],
+  "shelf_interior__8_0": [
+   0.73,
+   0.295,
+   0.512
+  ],
+  "shelf_interior__8_1": [
+   0.73,
+   0.365,
+   0.512
+  ]
+ },
+ "built": "2026-10-03T06:22:44",
+ "build_s": 878.6,
+ "cells": {
+  "shelf_interior__0_0": [
+   {
+    "mask": "0x10",
+    "grasp_mask": "0x10",
+    "transit_mask": "0x0",
+    "cost": 8.7993,
+    "fam": "front_flip",
+    "held_kind": "held_low",
+    "transit_len": 8.799
+   },
+   {
+    "mask": "0x10",
+    "grasp_mask": "0x10",
+    "transit_mask": "0x0",
+    "cost": 8.7993,
+    "fam": "front_flip",
+    "held_kind": "held_low",
+    "transit_len": 8.799
+   },
+   {
+    "mask": "0x10",
+    "grasp_mask": "0x10",
+    "transit_mask": "0x0",
+    "cost": 8.7993,
+    "fam": "front_flip",
+    "held_kind": "held_low",
+    "transit_len": 8.799
+   },
+   {
+    "mask": "0x10",
+    "grasp_mask": "0x10",
+    "transit_mask": "0x0",
+    "cost": 8.7993,
+    "fam": "front_flip",
+    "held_kind": "held_low",
+    "transit_len": 8.799
+   }
+  ],
+  "shelf_interior__0_1": [
+   {
+    "mask": "0x31",
+    "grasp_mask": "0x31",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x31",
+    "grasp_mask": "0x31",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x31",
+    "grasp_mask": "0x31",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x31",
+    "grasp_mask": "0x31",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   }
+  ],
+  "shelf_interior__0_2": [
+   {
+    "mask": "0x73",
+    "grasp_mask": "0x73",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x173",
+    "grasp_mask": "0x173",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x173",
+    "grasp_mask": "0x173",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x173",
+    "grasp_mask": "0x173",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x173",
+    "grasp_mask": "0x173",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   }
+  ],
+  "shelf_interior__0_3": [
+   {
+    "mask": "0xf7",
+    "grasp_mask": "0xf7",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x3f7",
+    "grasp_mask": "0x3f7",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x3f7",
+    "grasp_mask": "0x3f7",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x3f7",
+    "grasp_mask": "0x3f7",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   },
+   {
+    "mask": "0x3f7",
+    "grasp_mask": "0x3f7",
+    "transit_mask": "0x0",
+    "cost": 7.5102,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 7.51
+   }
+  ],
+  "shelf_interior__1_0": [
+   {
+    "mask": "0x101",
+    "grasp_mask": "0x101",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x101",
+    "grasp_mask": "0x101",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x101",
+    "grasp_mask": "0x101",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x101",
+    "grasp_mask": "0x101",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   }
+  ],
+  "shelf_interior__1_1": [
+   {
+    "mask": "0x313",
+    "grasp_mask": "0x313",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x313",
+    "grasp_mask": "0x313",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x313",
+    "grasp_mask": "0x313",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x313",
+    "grasp_mask": "0x313",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   }
+  ],
+  "shelf_interior__1_2": [
+   {
+    "mask": "0x737",
+    "grasp_mask": "0x737",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x1737",
+    "grasp_mask": "0x1737",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x1737",
+    "grasp_mask": "0x1737",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x1737",
+    "grasp_mask": "0x1737",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x1737",
+    "grasp_mask": "0x1737",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   }
+  ],
+  "shelf_interior__1_3": [
+   {
+    "mask": "0xf7f",
+    "grasp_mask": "0xf7f",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x3f7f",
+    "grasp_mask": "0x3f7f",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x3f7f",
+    "grasp_mask": "0x3f7f",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x3f7f",
+    "grasp_mask": "0x3f7f",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   },
+   {
+    "mask": "0x3f7f",
+    "grasp_mask": "0x3f7f",
+    "transit_mask": "0x0",
+    "cost": 4.9193,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.919
+   }
+  ],
+  "shelf_interior__2_0": [
+   {
+    "mask": "0x1010",
+    "grasp_mask": "0x1010",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x1010",
+    "grasp_mask": "0x1010",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x1010",
+    "grasp_mask": "0x1010",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x1010",
+    "grasp_mask": "0x1010",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   }
+  ],
+  "shelf_interior__2_1": [
+   {
+    "mask": "0x3130",
+    "grasp_mask": "0x3130",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3130",
+    "grasp_mask": "0x3130",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3130",
+    "grasp_mask": "0x3130",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3130",
+    "grasp_mask": "0x3130",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   }
+  ],
+  "shelf_interior__2_2": [
+   {
+    "mask": "0x7370",
+    "grasp_mask": "0x7370",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x7370",
+    "grasp_mask": "0x7370",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x7370",
+    "grasp_mask": "0x7370",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x7370",
+    "grasp_mask": "0x7370",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   }
+  ],
+  "shelf_interior__2_3": [
+   {
+    "mask": "0xf7f0",
+    "grasp_mask": "0xf7f0",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3f7f0",
+    "grasp_mask": "0x3f7f0",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3f7f0",
+    "grasp_mask": "0x3f7f0",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3f7f0",
+    "grasp_mask": "0x3f7f0",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   },
+   {
+    "mask": "0x3f7f0",
+    "grasp_mask": "0x3f7f0",
+    "transit_mask": "0x0",
+    "cost": 4.4677,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.468
+   }
+  ],
+  "shelf_interior__3_0": [
+   {
+    "mask": "0x10100",
+    "grasp_mask": "0x10100",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x10100",
+    "grasp_mask": "0x10100",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x10100",
+    "grasp_mask": "0x10100",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x10100",
+    "grasp_mask": "0x10100",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   }
+  ],
+  "shelf_interior__3_1": [
+   {
+    "mask": "0x31300",
+    "grasp_mask": "0x31300",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x31300",
+    "grasp_mask": "0x31300",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x31300",
+    "grasp_mask": "0x31300",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x31300",
+    "grasp_mask": "0x31300",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   }
+  ],
+  "shelf_interior__3_2": [
+   {
+    "mask": "0x73700",
+    "grasp_mask": "0x73700",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x73700",
+    "grasp_mask": "0x73700",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x73700",
+    "grasp_mask": "0x73700",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0x73700",
+    "grasp_mask": "0x73700",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   }
+  ],
+  "shelf_interior__3_3": [
+   {
+    "mask": "0xf7f10",
+    "grasp_mask": "0xf7f10",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0xf7f10",
+    "grasp_mask": "0xf7f10",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0xf7f10",
+    "grasp_mask": "0xf7f10",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   },
+   {
+    "mask": "0xf7f10",
+    "grasp_mask": "0xf7f10",
+    "transit_mask": "0x0",
+    "cost": 4.3872,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.387
+   }
+  ],
+  "shelf_interior__4_0": [
+   {
+    "mask": "0x101000",
+    "grasp_mask": "0x101000",
+    "transit_mask": "0x0",
+    "cost": 4.3128,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.313
+   },
+   {
+    "mask": "0x101000",
+    "grasp_mask": "0x101000",
+    "transit_mask": "0x0",
+    "cost": 4.3128,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.313
+   },
+   {
+    "mask": "0x101000",
+    "grasp_mask": "0x101000",
+    "transit_mask": "0x0",
+    "cost": 4.3128,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.313
+   },
+   {
+    "mask": "0x101000",
+    "grasp_mask": "0x101000",
+    "transit_mask": "0x0",
+    "cost": 4.3128,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.313
+   }
+  ],
+  "shelf_interior__4_1": [
+   {
+    "mask": "0x313000",
+    "grasp_mask": "0x313000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0x313000",
+    "grasp_mask": "0x313000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0x313000",
+    "grasp_mask": "0x313000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0x313000",
+    "grasp_mask": "0x313000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   }
+  ],
+  "shelf_interior__4_2": [
+   {
+    "mask": "0x737000",
+    "grasp_mask": "0x737000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0x737000",
+    "grasp_mask": "0x737000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0x737000",
+    "grasp_mask": "0x737000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0x737000",
+    "grasp_mask": "0x737000",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   }
+  ],
+  "shelf_interior__4_3": [
+   {
+    "mask": "0xf7f100",
+    "grasp_mask": "0xf7f100",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0xf7f100",
+    "grasp_mask": "0xf7f100",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0xf7f100",
+    "grasp_mask": "0xf7f100",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   },
+   {
+    "mask": "0xf7f100",
+    "grasp_mask": "0xf7f100",
+    "transit_mask": "0x0",
+    "cost": 4.4233,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.423
+   }
+  ],
+  "shelf_interior__5_0": [
+   {
+    "mask": "0x1010000",
+    "grasp_mask": "0x1010000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x1010000",
+    "grasp_mask": "0x1010000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x1010000",
+    "grasp_mask": "0x1010000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x1010000",
+    "grasp_mask": "0x1010000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   }
+  ],
+  "shelf_interior__5_1": [
+   {
+    "mask": "0x3130000",
+    "grasp_mask": "0x3130000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x3130000",
+    "grasp_mask": "0x3130000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x3130000",
+    "grasp_mask": "0x3130000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x3130000",
+    "grasp_mask": "0x3130000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   }
+  ],
+  "shelf_interior__5_2": [
+   {
+    "mask": "0x7370000",
+    "grasp_mask": "0x7370000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x7370000",
+    "grasp_mask": "0x7370000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x7370000",
+    "grasp_mask": "0x7370000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0x7370000",
+    "grasp_mask": "0x7370000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   }
+  ],
+  "shelf_interior__5_3": [
+   {
+    "mask": "0xf7f1000",
+    "grasp_mask": "0xf7f1000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0xf7f1000",
+    "grasp_mask": "0xf7f1000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0xf7f1000",
+    "grasp_mask": "0xf7f1000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   },
+   {
+    "mask": "0xf7f1000",
+    "grasp_mask": "0xf7f1000",
+    "transit_mask": "0x0",
+    "cost": 4.9848,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 4.985
+   }
+  ],
+  "shelf_interior__6_0": [
+   {
+    "mask": "0x10100000",
+    "grasp_mask": "0x10100000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   },
+   {
+    "mask": "0x10100000",
+    "grasp_mask": "0x10100000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   },
+   {
+    "mask": "0x10100000",
+    "grasp_mask": "0x10100000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   },
+   {
+    "mask": "0x10100000",
+    "grasp_mask": "0x10100000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   }
+  ],
+  "shelf_interior__6_1": [
+   {
+    "mask": "0x31300000",
+    "grasp_mask": "0x31300000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   },
+   {
+    "mask": "0x31300000",
+    "grasp_mask": "0x31300000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   },
+   {
+    "mask": "0x31300000",
+    "grasp_mask": "0x31300000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   },
+   {
+    "mask": "0x31300000",
+    "grasp_mask": "0x31300000",
+    "transit_mask": "0x0",
+    "cost": 4.9672,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.236
+   }
+  ],
+  "shelf_interior__6_2": [
+   {
+    "mask": "0x73700000",
+    "grasp_mask": "0x73700000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   },
+   {
+    "mask": "0x73700000",
+    "grasp_mask": "0x73700000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   },
+   {
+    "mask": "0x73700000",
+    "grasp_mask": "0x73700000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   },
+   {
+    "mask": "0x73700000",
+    "grasp_mask": "0x73700000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   }
+  ],
+  "shelf_interior__6_3": [
+   {
+    "mask": "0xf7f10000",
+    "grasp_mask": "0xf7f10000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   },
+   {
+    "mask": "0xf7f10000",
+    "grasp_mask": "0xf7f10000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   },
+   {
+    "mask": "0xf7f10000",
+    "grasp_mask": "0xf7f10000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   },
+   {
+    "mask": "0xf7f10000",
+    "grasp_mask": "0xf7f10000",
+    "transit_mask": "0x0",
+    "cost": 5.3684,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 6.247
+   }
+  ],
+  "shelf_interior__7_0": [
+   {
+    "mask": "0x101000000",
+    "grasp_mask": "0x101000000",
+    "transit_mask": "0x0",
+    "cost": 3.977,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.199
+   },
+   {
+    "mask": "0x101000000",
+    "grasp_mask": "0x101000000",
+    "transit_mask": "0x0",
+    "cost": 3.977,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.199
+   },
+   {
+    "mask": "0x101000000",
+    "grasp_mask": "0x101000000",
+    "transit_mask": "0x0",
+    "cost": 4.3171,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 4.613
+   },
+   {
+    "mask": "0x101000000",
+    "grasp_mask": "0x101000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   }
+  ],
+  "shelf_interior__7_1": [
+   {
+    "mask": "0x313000000",
+    "grasp_mask": "0x313000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x313000000",
+    "grasp_mask": "0x313000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x313000000",
+    "grasp_mask": "0x313000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x313000000",
+    "grasp_mask": "0x313000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   }
+  ],
+  "shelf_interior__7_2": [
+   {
+    "mask": "0x337000000",
+    "grasp_mask": "0x337000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x337000000",
+    "grasp_mask": "0x337000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x337000000",
+    "grasp_mask": "0x337000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x337000000",
+    "grasp_mask": "0x337000000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   }
+  ],
+  "shelf_interior__7_3": [
+   {
+    "mask": "0x37f100000",
+    "grasp_mask": "0x37f100000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x37f100000",
+    "grasp_mask": "0x37f100000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x37f100000",
+    "grasp_mask": "0x37f100000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   },
+   {
+    "mask": "0x37f100000",
+    "grasp_mask": "0x37f100000",
+    "transit_mask": "0x0",
+    "cost": 4.9843,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 5.408
+   }
+  ],
+  "shelf_interior__8_0": [
+   {
+    "mask": "0x10000000",
+    "grasp_mask": "0x10000000",
+    "transit_mask": "0x0",
+    "cost": 3.3549,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.355
+   },
+   {
+    "mask": "0x10000000",
+    "grasp_mask": "0x10000000",
+    "transit_mask": "0x0",
+    "cost": 3.3946,
+    "fam": "front",
+    "held_kind": "held_low",
+    "transit_len": 3.486
+   },
+   {
+    "mask": "0x10000000",
+    "grasp_mask": "0x10000000",
+    "transit_mask": "0x0",
+    "cost": 3.4624,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.481
+   },
+   {
+    "mask": "0x10000000",
+    "grasp_mask": "0x10000000",
+    "transit_mask": "0x0",
+    "cost": 3.4624,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.481
+   }
+  ],
+  "shelf_interior__8_1": [
+   {
+    "mask": "0x130000000",
+    "grasp_mask": "0x130000000",
+    "transit_mask": "0x0",
+    "cost": 3.4624,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.481
+   },
+   {
+    "mask": "0x130000000",
+    "grasp_mask": "0x130000000",
+    "transit_mask": "0x0",
+    "cost": 3.4624,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.481
+   },
+   {
+    "mask": "0x130000000",
+    "grasp_mask": "0x130000000",
+    "transit_mask": "0x0",
+    "cost": 3.4624,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.481
+   },
+   {
+    "mask": "0x130000000",
+    "grasp_mask": "0x130000000",
+    "transit_mask": "0x0",
+    "cost": 3.4624,
+    "fam": "front",
+    "held_kind": "held",
+    "transit_len": 3.481
+   }
+  ]
+ }
+}

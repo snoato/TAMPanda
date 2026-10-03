@@ -1034,6 +1034,115 @@ def tower_on_bridge(ix: int, iy: int, *,
     )
 
 
+# ---------------------------------------------------------------------------
+# Mini-L4 templates — single-column bridge variants placed at L3 to bridge
+# the L3→L4 horizon jump.  Same L4 vocabulary (put-upright, make-upright-
+# from-x, pick-long-x, turn-long-x-to-y, put-long-y) but composed at 1×3
+# footprint with 9-11 action plans instead of L4's 18-22.
+# ---------------------------------------------------------------------------
+
+
+def mini_bridge_2pillars(ix: int, iy: int, *,
+                              cfg: Optional[MultilevelBlocksConfig] = None,
+                              oblong_start: int = 0,
+                              long_start: int = 0) -> Template:
+    """L3 mini-L4: 2 upright pillars + 1 long-y bridge on top.
+
+    Uprights at (ix, iy) and (ix, iy+2) span L0+L1; long-y at L2 spans
+    (ix, iy..iy+2).  Plan = 2 × (pick-flat-x + make-upright-from-x +
+    put-upright) + (pick-long-x + turn-long-x-to-y + put-long-y) = 9.
+    Footprint 1×3.
+    """
+    if cfg is None:
+        cfg = MultilevelBlocksConfig()
+    if cfg.stack_grid_cells[2] < 3:
+        raise ValueError("mini_bridge_2pillars needs >=3 stack levels")
+
+    alloc = _PartsAllocator(cfg)
+    goal: List[_Placement] = []
+    src: List[_Placement] = []
+    order: List[str] = []
+
+    # Uprights: back first (iy+2), then front (iy).
+    upright_positions = [
+        (ix, iy + 2),
+        (ix, iy),
+    ]
+    for k, (sx, sy) in enumerate(upright_positions):
+        block = oblong_block_name(oblong_start + k)
+        order.append(block)
+        goal.append((block, [_stack(0, sx, sy), _stack(1, sx, sy)],
+                          "upright"))
+        s_cells = alloc.alloc(2, 1)
+        src.append((block, _cells_xy_to_ids(s_cells), "flat-x"))
+
+    # Bridge: long-y at L2, column ix, spans y in [iy..iy+2].
+    block = long_block_name(long_start)
+    order.append(block)
+    goal_cells = [_stack(2, ix, iy), _stack(2, ix, iy + 1),
+                       _stack(2, ix, iy + 2)]
+    goal.append((block, goal_cells, "flat-y"))
+    s_cells = alloc.alloc(3, 1)
+    src.append((block, _cells_xy_to_ids(s_cells), "flat-x"))
+
+    return Template(
+        name=f"mini_bridge_2pillars_anchor({ix},{iy})",
+        goal_placements=goal,
+        source_placements=src,
+        build_order=order,
+        metadata={"difficulty": 3, "anchor": (ix, iy)},
+    )
+
+
+def mini_tower_on_bridge(ix: int, iy: int, *,
+                              cfg: Optional[MultilevelBlocksConfig] = None,
+                              oblong_start: int = 0,
+                              long_start: int = 0,
+                              cube_start: int = 0) -> Template:
+    """L3 mini-L4: mini_bridge_2pillars + a single cube at L3 over the
+    bridge midpoint.
+
+    Plan = 9 + pick-cube + put-cube = 11 actions.  Footprint 1×3.
+    """
+    if cfg is None:
+        cfg = MultilevelBlocksConfig()
+    if cfg.stack_grid_cells[2] < 4:
+        raise ValueError(
+            "mini_tower_on_bridge needs >=4 stack levels")
+
+    base = mini_bridge_2pillars(ix, iy, cfg=cfg,
+                                       oblong_start=oblong_start,
+                                       long_start=long_start)
+    # Re-allocate parts kit using a shared allocator so the cube's
+    # source doesn't collide with the existing oblong/long sources.
+    alloc = _PartsAllocator(cfg)
+    new_src: List[_Placement] = []
+    src_by_block = {block: (cells, orient)
+                       for block, cells, orient in base.source_placements}
+    for block in base.build_order:
+        _, orient = src_by_block[block]
+        footprint = 3 if block.startswith("long_") else \
+                          (2 if block.startswith("oblong_") else 1)
+        s_cells = alloc.alloc(footprint, 1)
+        new_src.append((block, _cells_xy_to_ids(s_cells), orient))
+
+    goal = list(base.goal_placements)
+    order = list(base.build_order)
+    block = cube_block_name(cube_start)
+    order.append(block)
+    goal.append((block, [_stack(3, ix, iy + 1)], "flat-x"))
+    s_cells = alloc.alloc(1, 1)
+    new_src.append((block, _cells_xy_to_ids(s_cells), "flat-x"))
+
+    return Template(
+        name=f"mini_tower_on_bridge_anchor({ix},{iy})",
+        goal_placements=goal,
+        source_placements=new_src,
+        build_order=order,
+        metadata={"difficulty": 3, "anchor": (ix, iy)},
+    )
+
+
 def compound(rng: np.random.Generator, *,
                 cfg: Optional[MultilevelBlocksConfig] = None,
                 n_substructures: int = 2) -> Template:
