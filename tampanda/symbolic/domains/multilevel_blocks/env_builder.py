@@ -244,6 +244,7 @@ def make_multilevel_blocks_builder(
     config: Optional[MultilevelBlocksConfig] = None,
     block_colors: Optional[Sequence[Tuple[float, float, float, float]]] = None,
     disable_hand_capsule: bool = True,
+    robot_xml: Optional[Path] = None,
 ) -> Tuple[ArmSceneBuilder, Workspace, MultilevelBlocksConfig]:
     """Build the multi-level blocks scene.
 
@@ -263,6 +264,10 @@ def make_multilevel_blocks_builder(
             Pass False if you specifically want the conservative
             capsule active (e.g., re-generating data with stricter
             geometry).
+        robot_xml: optional base robot XML for the ArmSceneBuilder (None =
+            the bundled base_panda.xml, unchanged). The honest check
+            (``multilevel_blocks.honest``) passes base_panda_v2.xml, whose
+            link collision meshes have convex hulls.
     """
     cfg = config or MultilevelBlocksConfig()
     palette = list(block_colors) if block_colors else list(_KULSHRESTHA_PALETTE)
@@ -318,7 +323,7 @@ def make_multilevel_blocks_builder(
     parts_table_path = _emit_table_xml(*parts_table_half, scratch_dir, "parts",
                                             body_z=cfg.parts_table_pos[2])
 
-    b = ArmSceneBuilder()
+    b = ArmSceneBuilder() if robot_xml is None else ArmSceneBuilder(base=robot_xml)
     # NOTE: we deliberately do NOT inject the
     # ``Newton/iter=5/implicitfast/timestep=0.005`` option block that
     # the tabletop and blocks domains use.  An earlier attempt to do so
