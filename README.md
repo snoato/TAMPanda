@@ -139,6 +139,28 @@ The tabletop domain connects PDDL task planning to the continuous planner: symbo
 
 **Benchmarks** (all headless) — `benchmark_grasping.py`, `benchmark_cylinder_grasping.py`, `benchmark_feasibility.py`, `benchmark_feasibility_params.py`, `benchmark_parallel_rrt.py`, `benchmark_ycb_grasp.py`
 
+## Known limitations
+
+**Clearance margins are not enforced against multi-geom bodies (MuJoCo mid-phase).** The honest feasibility checkers
+(Access-19 v2 `access19_v2/`, confined shelf `confined_shelf/honest*`, multi-level shelf `shelf_access_v2/`) and the
+library build tooling raise contact margins at runtime (`model.geom_margin[...] = ...`) to detect near-contacts. In
+MuJoCo 3.4, the collision mid-phase ignores a margin raised after compile whenever either body of a pair has more than
+one geom, as the world body holding the furniture always does. Such near-contacts are then not reported at all.
+- **What still holds:** penetrations are always detected, because their bounding volumes overlap regardless of the margin. The checkers therefore guarantee **no penetration**, but **not** the configured clearance margin.
+- **Measured:** the minimum clearance of the paper's evaluated motions is reported as a measurement. One certified M3 motion passes 1.82 mm from a deck; the configured margin is 2 mm.
+- **Reproduction:** `python scripts/repro_mujoco_runtime_margin.py`, observed with MuJoCo 3.4.0.
+- **Workarounds:**
+  - compile the margins into the model;
+  - or disable the mid-phase: `model.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_MIDPHASE`.
+- **Pitfalls when re-measuring:**
+  - With the mid-phase disabled, MuJoCo's primitive box-box collider can report large spurious penetrations for boxes that are separated but inside the margin; measure box-box pairs with an exact convex distance.
+  - `mj_geomDistance` can return a spurious 0.0 for separated mesh-box and box-box pairs.
+- **Released checkers:** they are the ones used for the paper and are left unchanged.
+
+**Open tabletop domain: no collision guarantee for the arm.** Its online planner checks only the hand, the fingers and
+the link7 capsule against the scene. The rest of the arm is not checked, and rendered executions of evaluated plans
+penetrate neighbouring objects by up to 8.92 mm. The no-penetration statement above does not cover this domain.
+
 ## Citation
 
 If you use TAMPanda in your research, please cite:
