@@ -49,8 +49,8 @@ Checking needs only the JSON. Building, validating and executing need:
 
 frantik's wheel vendors its own numpy, so install both with `pip install --target <dir>` (for example
 `pip install --target <dir> vamp-planner==0.6.4`). Point `A19V2_PYLIB` at the directories, separated by
-`os.pathsep`. They are appended to `sys.path`, so the environment's own numpy and MuJoCo take precedence. See
-`tampanda/symbolic/domains/access19_v2/_deps.py`. Set `MUJOCO_GL=egl` on headless machines.
+`os.pathsep`. The variable is required; there is no default location. The directories are appended to `sys.path`,
+so the environment's own numpy and MuJoCo take precedence. See `tampanda/symbolic/domains/access19_v2/_deps.py`. Set `MUJOCO_GL=egl` on headless machines.
 
 ## Layout of this directory
 

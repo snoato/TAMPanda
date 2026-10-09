@@ -27,6 +27,11 @@ libraries".
   - rebuild and validation tooling for the three grasp libraries;
   - `MANIFEST.json`, giving sizes and sha256 of every precomputed file;
   - `conflict_sets.py`, a conflict-set inspector.
+- **Native build dependencies:** frantik 0.1 (analytic Franka IK) and vamp-planner 0.6.4 are imported from the
+  `pip install --target` directories listed in `A19V2_PYLIB` (`access19_v2/_deps.py`). The variable is required;
+  there is no default location. A missing package raises an `ImportError` that names it and gives the install
+  command. Library builds, validation, execution and rendering, and the 3D-stacking checks `honest_aik`,
+  `honest_lib` and `honest_grip` need them; the pure-Python checkers do not.
 - **Reproduction script:** `scripts/repro_mujoco_runtime_margin.py` reproduces the runtime-margin limitation of
   MuJoCo's mid-phase. It is documented under "Known limitations".
 - **Tests:** `tests/test_access19_v2.py` and `tests/test_feasibility_libraries.py`, both pure Python. The second

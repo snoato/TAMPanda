@@ -21,7 +21,7 @@ seed's branch) is replaced by ``AnalyticIK``:
 The executor's precomputed hand-off configurations are kept (computed with MinkIK before the swap).
 
 Selected with MLB_CHECKER=honest_aik (rgnet plangolin/domains/checker_info + multilevel_blocks.py); logged as
-mlblocks-honest-aik-2026-10-05. Needs frantik (access19_v2._deps: A19V2_PYLIB or the cluster default pylib dir).
+mlblocks-honest-aik-2026-10-05. Needs frantik, located through A19V2_PYLIB (access19_v2._deps; no default location).
 """
 from __future__ import annotations
 

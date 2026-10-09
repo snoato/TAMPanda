@@ -72,7 +72,7 @@ prints the per-cell conflict sets of a library.
 | `validate.py` | library vs online planning on random states |
 | `problem.py`, `pddl/` | `tabletop-access-v2` domain + problem writer |
 | `oracle.py` | data-generation planner: search over pick+put moves on the library; `bfws` (best-first width search) is the mode that solves the hard instances |
-| `_deps.py` | locates frantik / vamp |
+| `_deps.py` | imports frantik / vamp from the `A19V2_PYLIB` directories |
 
 ### The grasp library
 
@@ -124,8 +124,9 @@ Files: `OUT_STEM.json` (geometry, digest, reference posture, bit order, candidat
 
 frantik (analytic IK) and vamp-planner 0.6.4 are needed only to BUILD a library, validate, execute or render, not
 to check. They live in `pip install --target` directories, because frantik's wheel vendors numpy and would replace
-the env's. Point `A19V2_PYLIB` at them (os.pathsep-separated); without it, `_deps.py` falls back to the authors' cluster
-directories if they exist. MuJoCo 3.4.0. Gotchas this stack depends on:
+the env's. Set `A19V2_PYLIB` to those directories (os.pathsep-separated). It is the only place `_deps.py` looks:
+there is no default location, and a missing package raises an `ImportError` that names it and gives the install
+command. MuJoCo 3.4.0. Gotchas this stack depends on:
 - MuJoCo builds mesh hulls only for meshes that can collide at compile time (hence `base_panda_v2.xml`).
 - Body-level contype/conaffinity gate the broad phase and are fixed at compile time (self-collision needs both).
 - `mj_geomDistance` returns spurious zeros for mesh–box pairs (use contact distances).

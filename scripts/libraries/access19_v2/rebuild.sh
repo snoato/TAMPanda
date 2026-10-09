@@ -4,12 +4,12 @@
 #
 #   scripts/libraries/access19_v2/rebuild.sh OUT_DIR
 #
-# Environment (all optional):
+# Environment (all optional except A19V2_PYLIB):
 #   PYTHON       interpreter with tampanda + MuJoCo 3.4.0 (default: python)
 #   WORKERS      build / validation processes (default: CPU count - 2; the shipped build used 60)
 #   GEO          k=v geometry file (default: T17C from access19_v2/layout.py)
 #   VALIDATE     0 skips validation and execution (default 1)
-#   A19V2_PYLIB  pip --target directories holding frantik and vamp-planner 0.6.4 (see ../README.md)
+#   A19V2_PYLIB  REQUIRED: pip --target directories holding frantik and vamp-planner 0.6.4 (see ../README.md)
 # Outputs in OUT_DIR: library_T17C.json / .npz, validate_T17C.json, exec_T17C_024.json, exec_T17C_13.json.
 # The builder lives in the package: tampanda/symbolic/domains/access19_v2/library.py (validate.py, execute.py).
 set -euo pipefail

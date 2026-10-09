@@ -212,9 +212,10 @@ The libraries ship in the repository as package data, each under 1 MB. `scripts/
 their sizes and sha256 hashes; the `.json` file is all a checker reads.
 
 **Rebuilding a library.** Building needs MuJoCo 3.4.0, frantik 0.1 (analytic Franka IK) and vamp-planner 0.6.4,
-installed with `pip install --target` and located through `A19V2_PYLIB` (see `scripts/libraries/README.md`). The
-3D-stacking checks plan online and need these packages at query time as well: `honest_aik` needs frantik;
-`honest_lib` and `honest_grip` need frantik and VAMP.
+installed with `pip install --target` and located through `A19V2_PYLIB` (see `scripts/libraries/README.md`).
+`A19V2_PYLIB` is required: there is no default location, and a missing package raises an `ImportError` that names
+it and gives the install command. The 3D-stacking checks plan online and need these packages at query time as
+well: `honest_aik` needs frantik; `honest_lib` and `honest_grip` need frantik and VAMP.
 
 ```bash
 export MUJOCO_GL=egl A19V2_PYLIB=/path/to/frantik_dir:/path/to/vamp_dir
