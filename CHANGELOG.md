@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 (unreleased)
+## 1.1.0 (2026-10-09)
 
 The physically honest feasibility stack behind the camera-ready results: the whole arm collides, and the shelf
 domains decide feasibility with precomputed grasp libraries. See the README, "Collision model and feasibility
