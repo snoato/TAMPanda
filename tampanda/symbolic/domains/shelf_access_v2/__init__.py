@@ -15,7 +15,8 @@ task, the YCB-proxy boxes (6 x 6 x 9 cm) and the floor separator, and changes on
 Feasibility = precomputed grasp library (Access-19 v2 construction on this scene: complete pick/put motions over all
 IK branches, dense exact checks at 2 mm, validated transits; per candidate the set of cells whose box it would
 touch). Boxes are identical, contacts pairwise:  action on cell c feasible in S  <=>  some candidate of c has
-conflicts & (S - {c}) == {}.  Pure Python, microseconds per query.
+conflicts & (S - {c}) == {}.  Pure Python, microseconds per query. Build / validation tooling:
+``scripts/libraries/shelf_access_v2/`` (see the README there).
 
     lib = HonestLibrary()            # DEFAULT_LIBRARY
     lib.feasible("middle_deck__2_3", occupied_cells)

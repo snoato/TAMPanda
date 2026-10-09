@@ -17,7 +17,7 @@ identical and contacts pairwise, so
     pick/put on cell c is feasible in occupancy S  <=>  some candidate of c has  conflicts & (S - {c}) == {}
 
 exactly in that collision model (conservative only w.r.t. motions that weave around particular bottles). Microseconds
-per query, no MuJoCo. Build / validation tooling: ``a19v2/honest_library.py`` (see README_honest.md).
+per query, no MuJoCo. Build / validation tooling: ``scripts/libraries/confined_shelf/`` (see the README there).
 
     lib = HonestLibrary()                                   # DEFAULT_LIBRARY
     lib.feasible("shelf_interior__4_3", occupied_cells)     # occupied_cells: cells of the OTHER bottles (own ignored)

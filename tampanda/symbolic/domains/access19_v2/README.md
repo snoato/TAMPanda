@@ -6,8 +6,9 @@ fingers and the held object collide. Feasibility is answered by a precomputed **
 pure-Python bitmask lookup, exact under the collision model, so training workers need no MuJoCo, no IK and no
 motion planner.
 
-Status (2026-10-02): code complete and validated on the T17c geometry. **Not committed**, and not yet wired into
-dataset generation or training. See "Integration" below.
+Status: released with tampanda 1.1.0, validated on the T17c geometry (2026-10-02). The shipped library is
+`data/library_T17C.{json,npz}`. To rebuild and validate it, see `scripts/libraries/access19_v2/`. The "Integration"
+section below records the plan as of 2026-10-02.
 
 ## Why v2
 
@@ -46,9 +47,14 @@ behind the target or on the other level ever blocks.
 | 6.5 cm | 49 cm | yes | ±1 (small ±2 parts in the two back interior rows) |
 | 7.0 cm | 51 cm | **no** | ±1 |
 
+Correction to the T17c row, measured on the shipped library in the camera-ready check (2026-10-09):
+- interior cells in columns 3–4 at rows ≥ 2 also need cells three columns to the left, in front of them, empty in
+  every candidate (for example, `shelf_interior__4_6` needs `1_0`–`1_4` empty);
+- on the top deck, the band is ±1 column for every cell and ±2 for most.
+
 v1's "only the own column in front" is not achievable with this hand while keeping lateral blocking. Rolling the
-hand by 180° changes nothing, because the housing is symmetric. `python blockstruct.py LIB` (research dir
-`a19v2/`) prints the per-row table for a library.
+hand by 180° changes nothing, because the housing is symmetric. `python scripts/libraries/conflict_sets.py LIB.json`
+prints the per-cell conflict sets of a library.
 
 ## The stack (local override of tampanda's generic IK / planners)
 
@@ -118,8 +124,8 @@ Files: `OUT_STEM.json` (geometry, digest, reference posture, bit order, candidat
 
 frantik (analytic IK) and vamp-planner 0.6.4 are needed only to BUILD a library, validate, execute or render, not
 to check. They live in `pip install --target` directories, because frantik's wheel vendors numpy and would replace
-the env's. Point `A19V2_PYLIB` at them (os.pathsep-separated); the cluster defaults are
-`/work/rleap1/daniel.swoboda/a19v2/pylib` and `.../pylib_vamp`. MuJoCo 3.4.0. Gotchas this stack depends on:
+the env's. Point `A19V2_PYLIB` at them (os.pathsep-separated); without it, `_deps.py` falls back to the authors' cluster
+directories if they exist. MuJoCo 3.4.0. Gotchas this stack depends on:
 - MuJoCo builds mesh hulls only for meshes that can collide at compile time (hence `base_panda_v2.xml`).
 - Body-level contype/conaffinity gate the broad phase and are fixed at compile time (self-collision needs both).
 - `mj_geomDistance` returns spurious zeros for mesh–box pairs (use contact distances).

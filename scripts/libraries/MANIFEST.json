@@ -1,0 +1,95 @@
+{
+ "format": 1,
+ "doc": "Precomputed files shipped with tampanda 1.1.0. Every file ships in the repository as package data (each is under 1 MB), so there are no release assets. tests/test_feasibility_libraries.py checks bytes and sha256. Rebuild commands and validation: scripts/libraries/README.md.",
+ "files": [
+  {
+   "path": "tampanda/symbolic/domains/access19_v2/data/library_T17C.json",
+   "bytes": 53628,
+   "sha256": "c660c4338ec5ad0627ea6f8c1dcc520ebc7e484885a6134e9c9cb2088adfe157",
+   "env": "access19_v2",
+   "content": "grasp library, checker input: geometry T17c (digest c08ead837b1a), bit order, candidate conflict masks",
+   "built": "2026-10-02T14:43:49",
+   "build_s": 93.7,
+   "rebuild": "scripts/libraries/access19_v2/rebuild.sh",
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/access19_v2/data/library_T17C.npz",
+   "bytes": 558105,
+   "sha256": "0fa605385b181df30830bf71e3ab106702cbc0424197a05f9c264b35610edb7c",
+   "env": "access19_v2",
+   "content": "joint paths of the library candidates (execution and rendering)",
+   "built": "2026-10-02T14:43:49",
+   "build_s": 93.7,
+   "rebuild": "scripts/libraries/access19_v2/rebuild.sh",
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/confined_shelf/honest_data/library_v1.json",
+   "bytes": 29957,
+   "sha256": "1e4ca287d2059b5fa3fbb77069b09937c131d3e55dbf78ef1fab283f65618c43",
+   "env": "confined_shelf",
+   "content": "grasp library, checker input: bit order, candidate conflict masks",
+   "built": "2026-10-03T06:22:44",
+   "build_s": 878.6,
+   "rebuild": "scripts/libraries/confined_shelf/rebuild.sh",
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/confined_shelf/honest_data/library_v1.npz",
+   "bytes": 402651,
+   "sha256": "100a9b1f9fda671509378eaaacb5b8026858a1556e65122bbc538f3936dabcb3",
+   "env": "confined_shelf",
+   "content": "joint paths of the library candidates (execution and rendering)",
+   "built": "2026-10-03T06:22:44",
+   "build_s": 878.6,
+   "rebuild": "scripts/libraries/confined_shelf/rebuild.sh",
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/shelf_access_v2/data/library_M3.json",
+   "bytes": 60343,
+   "sha256": "1a7a2a16aedbfe4d3da0621d479324781a489af24e6a26520cc12d5347211107",
+   "env": "shelf_access_v2",
+   "content": "grasp library, checker input: bit order, candidate conflict masks",
+   "built": "2026-10-03T12:42:34 (+ floor_left__0_1 rebuilt 2026-10-03T12:50:49)",
+   "build_s": 2958.6,
+   "rebuild": "scripts/libraries/shelf_access_v2/rebuild.sh",
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/shelf_access_v2/data/library_M3.npz",
+   "bytes": 652404,
+   "sha256": "90aac1fa6924fc1c8a49db563e0bc4768819a2396155cbd7caeb63d880d46b7e",
+   "env": "shelf_access_v2",
+   "content": "joint paths of the library candidates (execution and rendering)",
+   "built": "2026-10-03T12:42:34 (+ floor_left__0_1 rebuilt 2026-10-03T12:50:49)",
+   "build_s": 2958.6,
+   "rebuild": "scripts/libraries/shelf_access_v2/rebuild.sh",
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/shelf_access_v2/data/M3.kv",
+   "bytes": 225,
+   "sha256": "7df92a072378d94e3f59b55463296d19ab2d65ad94e3ca543e1bd6d3e00c2506",
+   "env": "shelf_access_v2",
+   "content": "geometry M3 (input of the library build, scripts/libraries/shelf_access_v2/msv2_scene.py)",
+   "built": null,
+   "build_s": null,
+   "rebuild": null,
+   "ships": "repository (package data)"
+  },
+  {
+   "path": "tampanda/symbolic/domains/multilevel_blocks/ik_seed_lut.npz",
+   "bytes": 464786,
+   "sha256": "6afec8d69ac84bbcb3264d93a0393837eb87af4022f6519ee165c721b551b583",
+   "env": "multilevel_blocks",
+   "content": "IK warm-start seeds of the 3D-stacking executor (precomputed table, not a grasp library)",
+   "built": null,
+   "build_s": null,
+   "rebuild": "python examples/precompute_ik_seeds.py --num-workers 32 (not re-run for 1.1.0)",
+   "ships": "repository (package data)"
+  }
+ ],
+ "release_assets": []
+}

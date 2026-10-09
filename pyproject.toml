@@ -40,4 +40,9 @@ include = ["tampanda*", "manipulation*"]
 tampanda = [
     "environments/assets/franka_emika_panda/**/*",
     "scenes/templates/**/*",
+    "symbolic/domains/*/pddl/*.pddl",
+    "symbolic/domains/access19_v2/data/*",
+    "symbolic/domains/confined_shelf/honest_data/*",
+    "symbolic/domains/shelf_access_v2/data/*",
+    "symbolic/domains/multilevel_blocks/ik_seed_lut.npz",
 ]
