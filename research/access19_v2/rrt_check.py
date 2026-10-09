@@ -6,7 +6,7 @@ straight-line approach) and measure, from the robot home pose:
   * rrt_ok / rrt_s / rrt_nodes -- tampanda RRTStar (seeded) finds a collision-free path, and how fast.
 Also checks statically that link0 (excluded from dynamic collision queries) clears the shelf.
 
-    MUJOCO_GL=egl python -m tampanda.symbolic.domains.access19_v2.rrt_check [--json f] [--max-iter N] [k=v ...]
+    MUJOCO_GL=egl python research/access19_v2/rrt_check.py [--json f] [--max-iter N] [k=v ...]
 """
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ import mujoco
 import numpy as np
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2.geometry import V2Params
-from tampanda.symbolic.domains.access19_v2.verify import (FRONT_QUATS, GRASP_CONTACT_OFFSET, SAFE_Z_ABOVE_DECK,
+from geometry import V2Params
+from verify import (FRONT_QUATS, GRASP_CONTACT_OFFSET, SAFE_Z_ABOVE_DECK,
                                                           Rig, quat_to_R, seeds_for)
 
 

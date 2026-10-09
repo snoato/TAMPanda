@@ -2,17 +2,17 @@
 Each candidate is scored on a fixed set of hard cells (corners, deepest rows, cells next to the robot); evaluation
 stops at the first failing cell, so bad candidates cost seconds. Writes one JSON line per candidate.
 
-    python -m tampanda.symbolic.domains.access19_v2.search out.jsonl seed=0 minutes=110
+    python research/access19_v2/search.py out.jsonl seed=0 minutes=110
 """
 import json, sys, time
 import numpy as np
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 from tampanda.kinematics import panda as P
 
 HARD = [("top", 6, 6), ("top", 0, 6), ("top", 3, 6), ("top", 3, 4), ("top", 0, 2), ("interior", 0, 6), ("interior", 6, 5),
         ("interior", 3, 6), ("interior", 3, 0), ("top", 6, 0), ("top", 0, 0), ("interior", 6, 0), ("interior", 0, 1),
         ("interior", 0, 3), ("interior", 6, 3), ("top", 3, 3)]
-SPACE = {"c": (0.12, 0.30), "x0": (-0.40, 0.30), "x0t": (-0.45, 0.25), "f": (-0.20, 0.20), "H": (0.26, 0.45), "pyt": (0.090, 0.105), "pyi": (0.045, 0.060), "px": (0.058, 0.075), "pxt": (0.058, 0.075), "r": (0.015, 0.020), "h0": (0.06, 0.12), "hstep": (0.054, 0.062), "side": (0.08, 0.16)}
+SPACE = {"c": (0.12, 0.30), "x0": (-0.40, 0.30), "x0t": (-0.45, 0.25), "f": (-0.20, 0.20), "H": (0.26, 0.45), "pyt": (0.090, 0.105), "pyi": (0.045, 0.060), "px": (0.058, 0.085), "pxt": (0.058, 0.085), "r": (0.015, 0.020), "h0": (0.06, 0.10), "hstep": (0.054, 0.062), "side": (0.08, 0.16)}
 
 
 def to_geo(p):
@@ -42,7 +42,7 @@ def path_progress(sc, Ls, finger, held_local, g):
 
 
 def evaluate(params):
-    g = C.Geo(**to_geo(params), depths=(0.007, 0.02), q7_step_deg=3.0)
+    g = C.Geo(**to_geo(params), depths=(0.007, 0.02))
     try:
         sc = C.Scene(g)
     except Exception as e:
@@ -56,16 +56,8 @@ def evaluate(params):
         cp = C.CellPaths(sc, lv, i, j, q7)
         crowd = allslots - C.designed_blockers(g, lv, i, j) - {key}
         ok, info = C.cell_ok(sc, cp, crowd | {key}, crowd)
-        lat_ok = True
         if ok:
-            for dx in (-1, 1):
-                nb = (lv, i + dx, j)
-                if nb in allslots and C.cell_ok(sc, cp, [key, nb], [nb])[0]:
-                    lat_ok = False; break
-        if ok and lat_ok:
             n_ok += 1; cs = 1.0 + min(5 * min(info["open_clear"], info["held_clear"]), 0.1)
-        elif ok:
-            cs = 0.5
         else:   # partial credit: best path progress over grasps (open path first, then held path)
             best = 0.0
             for key3, (Ls, hl) in cp.layers.items():

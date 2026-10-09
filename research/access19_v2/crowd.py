@@ -17,7 +17,7 @@ Executable form, per cell:
     must both FAIL.
 IK: closed form over the redundancy (He & Liu via frantik: q7 grid x 4 branches), bottleneck DP over path layers.
 
-    python -m tampanda.symbolic.domains.access19_v2.crowd out.json [k=v ...] [cells=interior:3_6;top:0_0] [render=dir]
+    python research/access19_v2/crowd.py out.json [k=v ...] [cells=interior:3_6;top:0_0] [render=dir]
 """
 from __future__ import annotations
 
@@ -31,8 +31,8 @@ import numpy as np
 
 import frantik
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import verify as V
-from tampanda.symbolic.domains.access19_v2.geometry import V2_ROBOT_XML, V2Params, patch_collisions
+import verify as V
+from geometry import V2_ROBOT_XML, V2Params, patch_collisions
 
 TCP_FROM_SITE = P.TCP_OFFSET - V.ATTACH_OFFSET
 GCO = V.GRASP_CONTACT_OFFSET

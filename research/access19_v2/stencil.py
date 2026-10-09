@@ -6,7 +6,7 @@ frontal grasps (grasp heights x both hand flips x IK seeds; IK paths are cached,
 An offset "blocks" a cell if NO grasp survives. Output: per region, per offset, the fraction of cells it blocks,
 plus the per-cell detail.
 
-    python -m tampanda.symbolic.domains.access19_v2.stencil out.json region=shelf_top [R=3] [k=v ...]
+    python research/access19_v2/stencil.py out.json region=shelf_top [R=3] [k=v ...]
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ import time
 
 import numpy as np
 
-from tampanda.symbolic.domains.access19_v2 import verify as V
-from tampanda.symbolic.domains.access19_v2.geometry import V2Params
+import verify as V
+from geometry import V2Params
 
 
 def main():

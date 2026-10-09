@@ -11,7 +11,7 @@ joint limits); the bottleneck DP is extended layer by layer and stops when no pa
 
 The scene is the arm + two boxes whose pose/size is changed in place (no recompiling the arm meshes).
 
-    python -m tampanda.symbolic.domains.access19_v2.reach out.json c=0.25 level=top|int H=0.30 \
+    python research/access19_v2/reach.py out.json c=0.25 level=top|int H=0.30 \
         xs=-0.3:0.55:0.05 zs=0.25:0.85:0.03 [q7_step_deg=4] [margin=0.005]
 """
 from __future__ import annotations
@@ -25,8 +25,8 @@ import numpy as np
 
 import frantik
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import verify as V
-from tampanda.symbolic.domains.access19_v2.geometry import V2_ROBOT_XML, V2Params, patch_collisions
+import verify as V
+from geometry import V2_ROBOT_XML, V2Params, patch_collisions
 
 TCP_FROM_SITE = P.TCP_OFFSET - V.ATTACH_OFFSET
 MAX_STEP = 0.20

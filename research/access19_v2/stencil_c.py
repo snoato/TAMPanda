@@ -2,7 +2,7 @@
 single object there, is the cell still pickable AND placeable (crowd.cell_ok)? Prints, per level, the fraction of
 tested cells each offset blocks.
 
-    python -m tampanda.symbolic.domains.access19_v2.stencil_c out.json cells=i:3_6;t:3_3 [geo k=v ...]
+    python research/access19_v2/stencil_c.py out.json cells=i:3_6;t:3_3 [geo k=v ...]
 """
 import json
 import sys
@@ -10,7 +10,7 @@ import sys
 import numpy as np
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 
 OFFS = [(dx, dy) for dy in range(-3, 2) for dx in range(-2, 3) if (dx, dy) != (0, 0)]
 

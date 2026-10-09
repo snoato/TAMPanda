@@ -32,6 +32,9 @@ libraries".
   there is no default location. A missing package raises an `ImportError` that names it and gives the install
   command. Library builds, validation, execution and rendering, and the 3D-stacking checks `honest_aik`,
   `honest_lib` and `honest_grip` need them; the pure-Python checkers do not.
+- **Research prototypes:** the Access-19 v2 geometry search behind T17c (`crowd`, `verify*`, `search*`, `stencil*`,
+  `transit`, `render_*` and others) is kept for provenance in `research/access19_v2/`, outside the installed
+  package and unmaintained.
 - **Reproduction script:** `scripts/repro_mujoco_runtime_margin.py` reproduces the runtime-margin limitation of
   MuJoCo's mid-phase. It is documented under "Known limitations".
 - **Tests:** `tests/test_access19_v2.py` and `tests/test_feasibility_libraries.py`, both pure Python. The second

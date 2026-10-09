@@ -1,9 +1,9 @@
 """Screen geometries on hard cells: base clearance (static), and per cell empty-shelf pick+put + lateral blocking.
-    python -m tampanda.symbolic.domains.access19_v2.frontal_sweep out.jsonl "geo1" "geo2" ...   (geo = k=v list)"""
+    python research/access19_v2/frontal_sweep.py out.jsonl "geo1" "geo2" ...   (geo = k=v list)"""
 import json, sys
 import numpy as np
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 
 HARD = [("interior", i, j) for i, j in ((0, 0), (4, 0), (2, 0), (0, 6), (4, 6), (2, 6), (0, 3), (4, 3))] + \
        [("top", i, j) for i, j in ((0, 0), (4, 0), (2, 0), (0, 6), (4, 6), (2, 6))]

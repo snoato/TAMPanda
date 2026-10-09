@@ -7,7 +7,7 @@ with VAMP RRT-Connect (sphere robot model; shelf boxes as cuboids, cylinders as 
 object top/bottom), simplify, interpolate, and re-check every interpolated configuration in MuJoCo with the exact
 collision meshes (clearance >= margin). VAMP is only the proposal mechanism; MuJoCo decides.
 
-    python -m tampanda.symbolic.domains.access19_v2.transit out.json cells=top:6_6;interior:3_6 [k=v ...]
+    python research/access19_v2/transit.py out.json cells=top:6_6;interior:3_6 [k=v ...]
 """
 import json
 import sys
@@ -17,8 +17,8 @@ import numpy as np
 import vamp
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
-from tampanda.symbolic.domains.access19_v2 import verify as V
+import crowd as C
+import verify as V
 
 VP = vamp.panda
 EE_FROM_SITE = 0.105 - V.ATTACH_OFFSET      # VAMP end effector (panda_grasptarget) = hand + 0.105 along z

@@ -29,7 +29,8 @@ demands.
 | grasp | site 0.7 cm below the box top, hand horizontal, approach +y; the same grasp on both levels (no regrasp) |
 
 Every cell can be picked and placed on an otherwise empty shelf, and same-row neighbours block each other.
-Research history: C3 → T1…T17 → T17c (`a19v2/checkpoints/`, research prototypes in this directory).
+Research history: C3 → T1…T17 → T17c (`a19v2/checkpoints/`). The research prototypes of that search are in
+`research/access19_v2/` at the repository root, outside the installed package and unmaintained.
 
 ### What blocks what (measured by the library)
 

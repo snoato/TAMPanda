@@ -11,7 +11,7 @@ rigidly at the grasp offset. Every motion uses the routes verified by verify.py 
 Every frame of every motion is collision-checked against the live scene (all other cubes in place); the
 report counts actions that could not be executed collision-free (rendered as a snap, flagged).
 
-    MUJOCO_GL=egl python -m tampanda.symbolic.domains.access19_v2.render_plan \
+    MUJOCO_GL=egl python research/access19_v2/render_plan.py \
         --plan PLAN.json --problem PROB.pddl --out OUT.mp4 [--cam d,az,el] [shelf_xy=0.39,0.36 ...]
 """
 from __future__ import annotations
@@ -26,8 +26,8 @@ import mujoco
 import numpy as np
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2.geometry import V2Params
-from tampanda.symbolic.domains.access19_v2.verify import (CUBE_GRASP_OFFSET, FRONT_QUATS, GRASP_CONTACT_OFFSET,
+from geometry import V2Params
+from verify import (CUBE_GRASP_OFFSET, FRONT_QUATS, GRASP_CONTACT_OFFSET,
                                                           SAFE_Z_ABOVE_DECK, Rig, quat_to_R, seeds_for)
 
 OCC = re.compile(r"\(occupied\s+(\S+)\s+(\S+?)\)")

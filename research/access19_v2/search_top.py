@@ -2,8 +2,8 @@
 crowded + lateral (partial credit for path progress). (2026-10-02)"""
 import json, sys, time
 import numpy as np
-from tampanda.symbolic.domains.access19_v2 import crowd as C
-from tampanda.symbolic.domains.access19_v2 import search6 as S6
+import crowd as C
+import search6 as S6
 
 G1 = dict(c=0.14, x0=0.26, mirror_int=1, px=0.060, pyi=0.032, r=0.010, side=0.18, f=0.0, H=0.31,
           hts_top=(0.08, 0.08, 0.135, 0.135, 0.19, 0.19, 0.245), hts_int=(0.245, 0.19, 0.19, 0.135, 0.135, 0.08, 0.08),

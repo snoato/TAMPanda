@@ -9,7 +9,7 @@ continuous path through the waypoint layers (max over paths of the min clearance
 differ by <= MAX_STEP rad in every joint), computed by DP. The binding (arm link, scene geom) pair at the bottleneck
 tells which dimension to change.
 
-    python -m tampanda.symbolic.domains.access19_v2.analytic out.json [k=v ...] [scene=empty|target|lateral]
+    python research/access19_v2/analytic.py out.json [k=v ...] [scene=empty|target|lateral]
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ import numpy as np
 
 import frantik
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import verify as V
-from tampanda.symbolic.domains.access19_v2.geometry import V2Params
+import verify as V
+from geometry import V2Params
 
 TCP_FROM_SITE = P.TCP_OFFSET - V.ATTACH_OFFSET      # tcp = site + 0.0134 m along the hand z axis
 DETECT = 0.05

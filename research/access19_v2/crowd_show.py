@@ -4,7 +4,7 @@ For each requested cell: build the CROWDED scene, find the best open-hand path a
 and render (i) the descent/entry start, (ii) the grasp pose, (iii) the held pose at the path start, from three
 cameras, with per-frame clearance printed. Also an overview of the fully crowded shelf.
 
-    MUJOCO_GL=egl python -m tampanda.symbolic.domains.access19_v2.crowd_show out_dir cells=top:6_6;interior:3_6 [k=v]
+    MUJOCO_GL=egl python research/access19_v2/crowd_show.py out_dir cells=top:6_6;interior:3_6 [k=v]
 """
 import sys
 from pathlib import Path
@@ -14,8 +14,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
-from tampanda.symbolic.domains.access19_v2 import verify as V
+import crowd as C
+import verify as V
 
 W, H = 720, 540
 

@@ -2,17 +2,19 @@
 Each candidate is scored on a fixed set of hard cells (corners, deepest rows, cells next to the robot); evaluation
 stops at the first failing cell, so bad candidates cost seconds. Writes one JSON line per candidate.
 
-    python -m tampanda.symbolic.domains.access19_v2.search out.jsonl seed=0 minutes=110
+    python research/access19_v2/search.py out.jsonl seed=0 minutes=110
 """
 import json, sys, time
 import numpy as np
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 from tampanda.kinematics import panda as P
 
 HARD = [("top", 6, 6), ("top", 0, 6), ("top", 3, 6), ("top", 3, 4), ("top", 0, 2), ("interior", 0, 6), ("interior", 6, 5),
         ("interior", 3, 6), ("interior", 3, 0), ("top", 6, 0), ("top", 0, 0), ("interior", 6, 0), ("interior", 0, 1),
         ("interior", 0, 3), ("interior", 6, 3), ("top", 3, 3)]
-SPACE = {"c": (0.12, 0.32), "x0": (-0.40, 0.25), "f": (-0.25, 0.25), "H": (0.26, 0.50), "pyt": (0.090, 0.110), "pyi": (0.045, 0.070), "px": (0.058, 0.070), "r": (0.015, 0.022), "h0": (0.06, 0.12), "hstep": (0.054, 0.062), "side": (0.08, 0.16)}
+SPACE = {"c": (0.12, 0.35), "x0": (-0.45, 0.30), "f": (-0.30, 0.25), "H": (0.22, 0.42), "pyt": (0.090, 0.112),
+         "pyi": (0.050, 0.075), "px": (0.058, 0.072), "r": (0.015, 0.025), "h0": (0.06, 0.14), "hstep": (0.054, 0.066),
+         "side": (0.07, 0.16)}
 
 
 def to_geo(p):
@@ -60,8 +62,7 @@ def evaluate(params):
             n_ok += 1; cs = 1.0 + min(5 * min(info["open_clear"], info["held_clear"]), 0.1)
         else:   # partial credit: best path progress over grasps (open path first, then held path)
             best = 0.0
-            for key3, (Ls, hl) in cp.layers.items():
-                kind = key3[2]
+            for (depth, qi, kind), (Ls, hl) in cp.layers.items():
                 sc.occupy(crowd | {key} if kind == "open" else crowd)
                 pr, _ = path_progress(sc, Ls, g.fo if kind == "open" else g.r, hl if kind == "held" else None, g)
                 best = max(best, 0.45 * pr)

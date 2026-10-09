@@ -15,9 +15,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
-from tampanda.symbolic.domains.access19_v2 import transit as Tr
-from tampanda.symbolic.domains.access19_v2 import verify as V
+import crowd as C
+import transit as Tr
+import verify as V
 
 W, H = 720, 464
 FINE = 0.005                 # joint-space check resolution (rad) for shortcut segments and final path checks

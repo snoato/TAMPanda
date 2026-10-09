@@ -1,7 +1,7 @@
 """Visual proof: for a top cell on a crowded flat top with equal-height objects, render the BEST posture over every
 analytic IK solution at the grasp pose and show what it hits. (2026-10-02)
 
-    MUJOCO_GL=egl python -m tampanda.symbolic.domains.access19_v2.contact_proof OUT GEOFILE top 3 4
+    MUJOCO_GL=egl python research/access19_v2/contact_proof.py OUT GEOFILE top 3 4
 """
 import sys
 from pathlib import Path
@@ -11,8 +11,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
-from tampanda.symbolic.domains.access19_v2 import verify as V
+import crowd as C
+import verify as V
 
 
 def font(sz):

@@ -2,18 +2,25 @@
 Each candidate is scored on a fixed set of hard cells (corners, deepest rows, cells next to the robot); evaluation
 stops at the first failing cell, so bad candidates cost seconds. Writes one JSON line per candidate.
 
-    python -m tampanda.symbolic.domains.access19_v2.search out.jsonl seed=0 minutes=110
+    python research/access19_v2/search.py out.jsonl seed=0 minutes=110
 """
 import json, sys, time
 import numpy as np
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 from tampanda.kinematics import panda as P
 
-HARD = [("top", 6, 6), ("top", 0, 6), ("top", 3, 6), ("interior", 0, 6), ("interior", 6, 5), ("interior", 3, 6),
-        ("top", 6, 0), ("top", 0, 0), ("interior", 6, 0), ("interior", 0, 1), ("interior", 0, 3), ("interior", 6, 3),
-        ("top", 3, 3)]
-SPACE = {"c": (0.10, 0.35), "x0": (-0.45, 0.35), "f": (0.0, 0.35), "H": (0.18, 0.40), "pyt": (0.085, 0.115),
-         "pyi": (0.050, 0.075), "px": (0.058, 0.072), "r": (0.015, 0.025), "h": (0.06, 0.16), "side": (0.07, 0.16)}
+HARD = [("top", 6, 6), ("top", 0, 6), ("top", 3, 6), ("top", 3, 4), ("top", 0, 2), ("interior", 0, 6), ("interior", 6, 5),
+        ("interior", 3, 6), ("interior", 3, 0), ("top", 6, 0), ("top", 0, 0), ("interior", 6, 0), ("interior", 0, 1),
+        ("interior", 0, 3), ("interior", 6, 3), ("top", 3, 3)]
+SPACE = {"c": (0.12, 0.32), "x0": (-0.40, 0.25), "f": (-0.25, 0.25), "H": (0.26, 0.50), "pyt": (0.090, 0.110), "pyi": (0.045, 0.070), "px": (0.058, 0.070), "r": (0.015, 0.022), "h0": (0.06, 0.12), "hstep": (0.054, 0.062), "side": (0.08, 0.16)}
+
+
+def to_geo(p):
+    """Height classes by row pairs: top rows (0,1),(2,3),(4,5),(6) rise by hstep; the interior mirrors it (front tall)."""
+    q = dict(p); h0, st = q.pop("h0"), q.pop("hstep")
+    top = tuple(round(h0 + st * (j // 2), 4) for j in range(7))
+    q["hts_top"] = top; q["hts_int"] = top[::-1]; q["h"] = h0
+    return q
 
 
 def path_progress(sc, Ls, finger, held_local, g):
@@ -35,7 +42,7 @@ def path_progress(sc, Ls, finger, held_local, g):
 
 
 def evaluate(params):
-    g = C.Geo(**params, depths=(0.007, 0.02))
+    g = C.Geo(**to_geo(params), depths=(0.007, 0.02))
     try:
         sc = C.Scene(g)
     except Exception as e:
@@ -53,7 +60,8 @@ def evaluate(params):
             n_ok += 1; cs = 1.0 + min(5 * min(info["open_clear"], info["held_clear"]), 0.1)
         else:   # partial credit: best path progress over grasps (open path first, then held path)
             best = 0.0
-            for (depth, qi, kind), (Ls, hl) in cp.layers.items():
+            for key3, (Ls, hl) in cp.layers.items():
+                kind = key3[2]
                 sc.occupy(crowd | {key} if kind == "open" else crowd)
                 pr, _ = path_progress(sc, Ls, g.fo if kind == "open" else g.r, hl if kind == "held" else None, g)
                 best = max(best, 0.45 * pr)

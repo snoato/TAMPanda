@@ -8,7 +8,7 @@ Reads the crowd verification JSONs of a geometry and renders every cell's cylind
   purple = feasible but a same-row neighbour does NOT block it.
 Writes <out>/status_3d.png (front-oblique + top views, robot at home) and <out>/status_grid.png (flat grids).
 
-    MUJOCO_GL=egl python -m tampanda.symbolic.domains.access19_v2.status_map OUT GEOFILE crowd_*.json
+    MUJOCO_GL=egl python research/access19_v2/status_map.py OUT GEOFILE crowd_*.json
 """
 import glob
 import json
@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 
 COL = {"green": (0.15, 0.75, 0.25, 1), "yellow": (0.95, 0.8, 0.1, 1), "red": (0.85, 0.1, 0.1, 1),
        "purple": (0.6, 0.2, 0.8, 1)}

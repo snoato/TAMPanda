@@ -11,7 +11,7 @@ outside the open front face; deck cells by a vertical descent from 10 cm above t
 when IK reaches every waypoint of that straight-line approach (1 cm steps, continuous joints, inside limits)
 with no arm-vs-scene contact. R3 requires the same grasp to FAIL when a lateral neighbour is present.
 
-    MUJOCO_GL=egl python -m tampanda.symbolic.domains.access19_v2.verify [--json out.json] [k=v ...]
+    MUJOCO_GL=egl python research/access19_v2/verify.py [--json out.json] [k=v ...]
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import mujoco
 import numpy as np
 
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2.geometry import ARM_BODIES, V2Params, build
+from geometry import ARM_BODIES, V2Params, build
 
 GRASP_CONTACT_OFFSET = 0.0137
 CUBE_GRASP_OFFSET = 0.010

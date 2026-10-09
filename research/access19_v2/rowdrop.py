@@ -2,12 +2,12 @@
 that the target is still picked AND placed (open + held paths) with clearance >= margin? (2026-10-02)
 Only that row is occupied (plus the target); the row directly in front is the designed blocker and stays empty.
 
-    python -m tampanda.symbolic.domains.access19_v2.rowdrop "k=v ..." pyts=0.09,0.095 ks=2,3,4 cells=3_6,6_6
+    python research/access19_v2/rowdrop.py "k=v ..." pyts=0.09,0.095 ks=2,3,4 cells=3_6,6_6
 """
 import sys
 import numpy as np
 from tampanda.kinematics import panda as P
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 
 
 def ok_for(base, pyt, k, cell, drop, ht=0.14):

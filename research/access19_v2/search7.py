@@ -2,11 +2,11 @@
 Each candidate is scored on a fixed set of hard cells (corners, deepest rows, cells next to the robot); evaluation
 stops at the first failing cell, so bad candidates cost seconds. Writes one JSON line per candidate.
 
-    python -m tampanda.symbolic.domains.access19_v2.search out.jsonl seed=0 minutes=110
+    python research/access19_v2/search.py out.jsonl seed=0 minutes=110
 """
 import json, sys, time
 import numpy as np
-from tampanda.symbolic.domains.access19_v2 import crowd as C
+import crowd as C
 from tampanda.kinematics import panda as P
 
 HARD = [("top", 6, 6), ("top", 0, 6), ("top", 3, 6), ("top", 3, 4), ("top", 0, 2), ("interior", 0, 6), ("interior", 6, 5),
