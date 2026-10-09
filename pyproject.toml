@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tampanda"
-version = "1.0.1"
+version = "1.1.0"
 description = "Task and motion planning for the Franka Panda robot, built on MuJoCo and MINK"
 authors = [
     { name = "Daniel Swoboda" },

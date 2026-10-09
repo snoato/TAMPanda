@@ -34,7 +34,7 @@ from tampanda.scenes import (
 from tampanda.sensing import RobotSensors, Lidar
 from tampanda.tamp import DomainBridge
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "FrankaEnvironment",
