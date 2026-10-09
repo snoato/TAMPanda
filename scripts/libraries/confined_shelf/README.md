@@ -21,7 +21,10 @@ identical.
 
 Cells are independent, so `CELLS=...` rebuilds a subset. Release check (2026-10-09): with `CELLS=shelf_interior__0_2,
 shelf_interior__4_3,shelf_interior__1_0,shelf_interior__8_1` and 4 workers, the rebuild took 288 s and reproduced
-those cells' candidate rows (every field) and joint paths exactly.
+those cells' candidate rows (every field) and joint paths exactly. A full rebuild with `rebuild.sh` (34 workers, on a
+96-core desk shared with the M3 rebuild) took 1,155 s to build and 202 s to validate. Its `.npz` has the shipped
+sha256. Its `.json` matches the shipped file in every field, and byte for byte once the build metadata (`built`,
+`build_s`) is restored. Validation again gave 240/240 agreement, 68 feasible.
 
 **Rebuild.**
 

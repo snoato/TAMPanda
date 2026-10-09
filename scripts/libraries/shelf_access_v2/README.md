@@ -45,7 +45,13 @@ The packaged builder includes the fallback. The fallback acts only on cells with
 other cell had at least two in the first pass. One full build with `rebuild.sh` therefore covers both passes.
 Release check (2026-10-09): `CELLS=middle_deck__3_3,top_deck__0_4,floor_left__0_1,floor_right__0_2` with 4
 workers took 1,294 s, in a single pass. It reproduced those cells' candidate rows (every field) and joint paths
-exactly, including the two `floor_left__0_1` candidates from the fallback.
+exactly, including the two `floor_left__0_1` candidates from the fallback. A full rebuild with `rebuild.sh` (34
+workers, on a 96-core desk shared with the confined rebuild) took 2,712 s to build, in one pass, and 277 s to
+validate. Its `.json` matches the shipped file in every field, and byte for byte once the build metadata (`built`,
+`build_s`, the geometry path in `domain`, and the two-pass `note`) is restored. Its `.npz` holds the same 1,380
+arrays with identical bytes. Only the member order differs, because the shipped file appends `floor_left__0_1`
+from the second pass; saved in the shipped order, the arrays give the shipped sha256. Validation again gave 240/240
+agreement, 123 feasible.
 
 **Outputs.** `library_M3.json` and `library_M3.npz`: 67 cells and 276 candidates (2–5 per cell). All candidates are
 front grasps: 228 plain and 48 rolled; 155 retreat `held` and 121 `held_low`. To deploy, copy both files over

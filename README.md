@@ -225,8 +225,9 @@ scripts/libraries/shelf_access_v2/rebuild.sh out/m3         # build + validate
 python scripts/libraries/conflict_sets.py                   # per-cell conflict sets of the shipped libraries
 ```
 
-Each `scripts/libraries/<env>/README.md` gives the inputs, the exact commands, the runtime and the outputs. A
-from-scratch rebuild of T17c (2026-10-09) reproduced every candidate and joint path of the shipped file exactly.
+Each `scripts/libraries/<env>/README.md` gives the inputs, the exact commands, the runtime and the outputs.
+From-scratch rebuilds of all three libraries (2026-10-09) reproduced every candidate and joint path of the shipped
+files exactly.
 
 **Validation against online planning.** For random (cell, occupancy) states, the library verdict was compared with
 planning that query online in that scene: DP against the objects present, VAMP transits, and dense exact checks.
