@@ -139,6 +139,110 @@ The tabletop domain connects PDDL task planning to the continuous planner: symbo
 
 **Benchmarks** (all headless) — `benchmark_grasping.py`, `benchmark_cylinder_grasping.py`, `benchmark_feasibility.py`, `benchmark_feasibility_params.py`, `benchmark_parallel_rrt.py`, `benchmark_ycb_grasp.py`
 
+## Collision model and feasibility libraries
+
+The physically honest checkers collide the whole arm, not only tampanda's hand and link7 stand-ins:
+- the three shelf domains: Access-19 v2 (`symbolic/domains/access19_v2/`), the confined shelf
+  (`confined_shelf/honest.py`) and the multi-level shelf v2 (`shelf_access_v2/`);
+- the 3D-stacking checks (`multilevel_blocks/honest*.py`).
+
+The default scenes and the open tabletop domain are unchanged.
+
+### What collides
+
+- **Robot model:** `environments/assets/franka_emika_panda/base_panda_v2.xml`. It equals `base_panda.xml` except
+  that the collision geoms have `conaffinity="1"`, so MuJoCo compiles a convex hull for every link collision mesh.
+  With `0`, no hull is built, and contacts enabled at runtime are silently lost.
+- **Arm vs scene and objects:** `access19_v2.shelf._enable_arm_collisions` enables the 20 collision geoms of
+  link1–link7, the hand and both fingers against the furniture and every object (meshes, plus boxes for the finger
+  pads). It disables tampanda's `hand_capsule` and `link7_capsule` stand-ins, and raises if any arm collision mesh
+  has no compiled hull.
+- **Held object:** it collides with the furniture and with every other object along the whole motion.
+- **Arm self-collision** (the three shelf libraries): arm geoms also collide with each other (contype 2 /
+  conaffinity 3, set on the bodies too, because the broad phase filters on body flags). The 3D-stacking checks
+  collide link1–link7, hand and fingers with every non-robot geom, and the held block with the scene, but not the
+  arm with itself.
+
+**Excluded pairs** (shelf scenes; listed from the compiled scenes):
+- each link with its parent link (MuJoCo's default parent–child filter): link1–link0, …, hand–link7,
+  fingers–hand;
+- arm pairs already within the detection range (3 cm) at the home posture, which are structural neighbours: link5–
+  link7 in all three scenes, plus left–right finger in Access-19 v2 (whose home posture has the fingers closed);
+- the arm and the object it holds (fingers on the held object);
+- `link0`, the bolted base: its geoms are disabled. In Access-19 v2 it is instead checked geometrically against the
+  shelf (vertex-in-box).
+- confined shelf only: link1 and the table the robot is mounted on, which already overlap at home (a scene defect,
+  not avoidable by any motion).
+
+### Margins
+
+| | shelf libraries (Access-19 v2, confined, M3) | 3D stacking (`honest_grip`) |
+|---|---|---|
+| configured | 3 mm at the IK layers of the approach paths, 2 mm along every motion, dense check every 0.005 rad (max-norm) | 2 mm, exact distances (mid-phase off, exact box–box distances); held block ≥ 2 mm in transit, ≥ −0.1 mm on its own vertical line |
+| enforced | **no penetration** (see [Known limitations](#known-limitations)) | 2 mm |
+
+The shelf margins are raised at runtime, and MuJoCo 3.4's mid-phase ignores such margins against multi-geom bodies.
+The shelf checkers therefore guarantee no penetration, and the clearance is reported as a measurement: the
+minimum over every motion of the measured evaluation plans, checked exactly.
+
+| | measured minimum clearance |
+|---|---|
+| Access-19 v2 | 3.034 mm in every measured set and variant (two-phase evaluations, including the fresh 18-blocker set); 0 samples below 2 mm |
+| confined shelf | 2.053 mm; 0 samples below 2 mm |
+| M3 | 1.819 mm (held box vs top deck); 48–168 samples below 2 mm per set |
+
+### Feasibility libraries
+
+The three shelf domains do not plan at query time. They look feasibility up in a precomputed grasp library: per
+cell, a few complete pick/put motions (home → approach → grasp → retreat → home), each with its **conflict set**,
+the cells whose object it would touch. Objects are identical and contacts are pairwise, so
+
+    pick/put on cell c is feasible in occupancy S  <=>  some candidate of c has  conflicts ∩ (S − {c}) = ∅
+
+A query is a bitmask test in pure Python and takes microseconds, against about 220 ms for v1's FAST check. It needs
+no MuJoCo, IK or planner. Pick and put of a cell are time-reverses, so they always get the same verdict.
+
+| domain | library (in `tampanda/symbolic/domains/`) | cells | candidates | shipped build time |
+|---|---|---|---|---|
+| Access-19 v2, geometry T17c | `access19_v2/data/library_T17C.{json,npz}` | 70 | 293 | 93.7 s (64-core desk, 60 workers) |
+| confined shelf | `confined_shelf/honest_data/library_v1.{json,npz}` | 34 | 141 | 878.6 s |
+| multi-level shelf v2, geometry M3 | `shelf_access_v2/data/library_M3.{json,npz}` | 67 | 276 | 2,538.3 s + 420.3 s |
+
+The libraries ship in the repository as package data, each under 1 MB. `scripts/libraries/MANIFEST.json` lists
+their sizes and sha256 hashes; the `.json` file is all a checker reads.
+
+**Rebuilding a library.** Building needs MuJoCo 3.4.0, frantik 0.1 (analytic Franka IK) and vamp-planner 0.6.4,
+installed with `pip install --target` and located through `A19V2_PYLIB` (see `scripts/libraries/README.md`). The
+3D-stacking checks plan online and need these packages at query time as well: `honest_aik` needs frantik;
+`honest_lib` and `honest_grip` need frantik and VAMP.
+
+```bash
+export MUJOCO_GL=egl A19V2_PYLIB=/path/to/frantik_dir:/path/to/vamp_dir
+scripts/libraries/access19_v2/rebuild.sh    out/t17c        # build + validate + execute
+scripts/libraries/confined_shelf/rebuild.sh out/confined    # build + validate
+scripts/libraries/shelf_access_v2/rebuild.sh out/m3         # build + validate
+python scripts/libraries/conflict_sets.py                   # per-cell conflict sets of the shipped libraries
+```
+
+Each `scripts/libraries/<env>/README.md` gives the inputs, the exact commands, the runtime and the outputs. A
+from-scratch rebuild of T17c (2026-10-09) reproduced every candidate and joint path of the shipped file exactly.
+
+**Validation against online planning.** For random (cell, occupancy) states, the library verdict was compared with
+planning that query online in that scene: DP against the objects present, VAMP transits, and dense exact checks.
+
+| library | states | agree | feasible | unsound | overly conservative |
+|---|---|---|---|---|---|
+| T17c | 700 | 700 | 164 | 0 | 0 |
+| confined `library_v1` | 240 | 240 | 68 | 0 | 0 |
+| M3 `library_M3` | 240 | 240 | 123 | 0 | 0 |
+
+The online search is the same motion search, run per query. The comparison therefore validates the precomputation
+and the pairwise conflict-set decomposition, not the library against an independent planner.
+
+For T17c, the full-shelf unload plans also execute with library motions: 42/42 and 28/28 actions, 0 contacts in
+108,239 exact-checked samples. The stored validation states are a test fixture: `tests/test_feasibility_libraries.py`
+replays them against the shipped libraries and checks the conflict-set structure, without MuJoCo.
+
 ## Known limitations
 
 **Clearance margins are not enforced against multi-geom bodies (MuJoCo mid-phase).** The honest feasibility checkers
@@ -178,5 +282,7 @@ If you use TAMPanda in your research, please cite:
 
 - [MuJoCo](https://mujoco.org) (Google DeepMind) — physics engine
 - [MINK](https://github.com/kevinzakka/mink) (Kevin Zakka) — differential IK library
+- [VAMP](https://github.com/KavrakiLab/vamp) (Thomason, Kingston, Kavraki) — vectorized sampling-based motion planning (library builds and the 3D-stacking checks)
+- [frantik](https://github.com/CoMMALab/frantik) — analytic Franka IK after He & Liu (library builds and the 3D-stacking checks)
 - [elpis-lab/ycb_dataset](https://github.com/elpis-lab/ycb_dataset) — YCB object assets
 - [kevinzakka/mujoco_scanned_objects](https://github.com/kevinzakka/mujoco_scanned_objects) — Google Scanned Objects assets
