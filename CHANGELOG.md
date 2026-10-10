@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 (2026-10-09)
+## 1.1.0 (2026-10-11)
 
 The physically honest feasibility stack behind the camera-ready results: the whole arm collides, and the shelf
 domains decide feasibility with precomputed grasp libraries. See the README, "Collision model and feasibility
@@ -50,3 +50,8 @@ libraries".
 - **Package data:** it now includes the PDDL domain files, the grasp libraries, the M3 geometry and the IK seed
   table, so non-editable installs can find them.
 - **Version:** `tampanda.__version__` now matches the package version; it said 1.0.0 before.
+
+### Fixed
+
+- **Dependencies:** `quadprog` is now declared. `ik/mink_ik.py` hard-codes it as mink's QP solver, so a clean
+  install without it raised `SolverNotFound` on every IK call (3D stacking, the tabletop checker).

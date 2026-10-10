@@ -16,6 +16,7 @@ dependencies = [
     "mujoco>=3.0.0",
     "numpy>=1.20.0",
     "mink>=0.0.1",
+    "quadprog>=0.1.13",
     "loop-rate-limiters>=1.0.0",
     "matplotlib>=3.0.0",
     "opencv-python>=4.0.0",
