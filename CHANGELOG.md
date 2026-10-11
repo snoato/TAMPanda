@@ -8,6 +8,8 @@ libraries".
 
 ### Added
 
+- **Licence:** `LICENSE`, MIT, copyright RWTH Aachen University (`pyproject.toml` already declared MIT). The
+  Panda model in `environments/assets/franka_emika_panda/` keeps its own Apache-2.0 licence.
 - **Robot model:** `environments/assets/franka_emika_panda/base_panda_v2.xml`, the Panda with convex hulls compiled
   for every link collision mesh (`conaffinity="1"`). `base_panda.xml` is unchanged.
 - **Access-19 v2** (`symbolic/domains/access19_v2/`):
