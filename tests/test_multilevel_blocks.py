@@ -5,6 +5,7 @@ Pure-Python — no MuJoCo simulation.  Block poses come from a FakeEnv.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from typing import Dict
 
@@ -20,6 +21,12 @@ from tampanda.symbolic.domains.multilevel_blocks import (
     stack_region_name,
 )
 from tampanda.symbolic.workspace import Cell
+
+# DomainBridge parses the PDDL domain with unified-planning, the optional extra tampanda[tamp].
+requires_unified_planning = pytest.mark.skipif(
+    importlib.util.find_spec("unified_planning") is None,
+    reason="needs unified-planning (pip install 'tampanda[tamp]')",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +145,7 @@ class TestBuilder:
 # ===========================================================================
 
 
+@requires_unified_planning
 class TestBridgeObjects:
     @pytest.fixture
     def setup(self, tmp_path: Path):
@@ -194,6 +202,7 @@ class TestBridgeObjects:
 # ===========================================================================
 
 
+@requires_unified_planning
 class TestAdjacency:
     @pytest.fixture
     def setup(self, tmp_path: Path):
@@ -247,6 +256,7 @@ class TestAdjacency:
 # ===========================================================================
 
 
+@requires_unified_planning
 class TestCubeGrounding:
     @pytest.fixture
     def setup(self, tmp_path: Path):
@@ -302,6 +312,7 @@ class TestCubeGrounding:
 # ===========================================================================
 
 
+@requires_unified_planning
 class TestOblongGrounding:
     @pytest.fixture
     def setup(self, tmp_path: Path):

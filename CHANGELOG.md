@@ -58,3 +58,7 @@ libraries".
 
 - **Dependencies:** `quadprog` is now declared. `ik/mink_ik.py` hard-codes it as mink's QP solver, so a clean
   install without it raised `SolverNotFound` on every IK call (3D stacking, the tabletop checker).
+- **Optional dependency:** `unified-planning`, which `DomainBridge` (`tamp/domain_bridge.py`) imports, is now
+  declared as the extra `tamp` (`pip install "tampanda[tamp]"`). Without it the 14 `DomainBridge` tests in
+  `tests/test_multilevel_blocks.py` are skipped instead of erroring. `DomainBridge.plan` also needs a
+  unified-planning engine, such as `up-pyperplan`; none is pinned.
