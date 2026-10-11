@@ -288,3 +288,11 @@ If you use TAMPanda in your research, please cite:
 - [frantik](https://github.com/CoMMALab/frantik) — analytic Franka IK after He & Liu (library builds and the 3D-stacking checks)
 - [elpis-lab/ycb_dataset](https://github.com/elpis-lab/ycb_dataset) — YCB object assets
 - [kevinzakka/mujoco_scanned_objects](https://github.com/kevinzakka/mujoco_scanned_objects) — Google Scanned Objects assets
+
+## License
+
+TAMPanda is MIT-licensed, Copyright (c) RWTH Aachen University (see `LICENSE`). The Panda model in
+`tampanda/environments/assets/franka_emika_panda/` keeps its own Apache-2.0 licence (`LICENSE` there).
+Two runtime dependencies are copyleft: `quadprog` (GPL-2.0-or-later), the QP solver of the MINK IK
+(`tampanda/ik/mink_ik.py`), and `qpsolvers` (LGPL-3.0, pulled in by `mink`). TAMPanda imports them and does not
+bundle them; anyone distributing TAMPanda bundled with them must comply with the GPL (and the LGPL for `qpsolvers`).
