@@ -1,5 +1,7 @@
 """Franka Panda robot environment implementation."""
 
+import os
+
 import mujoco
 try:
     import mujoco.viewer
@@ -54,6 +56,12 @@ class FrankaEnvironment(RobotArmEnvironment):
         self.model = mujoco.MjModel.from_xml_path(path)
         self.data = mujoco.MjData(self.model)
         self.ik = MinkIK(self.model, self.data)
+        if os.environ.get("TAMPANDA_IK", "mink") == "analytic":
+            # Closed-form IK over all branches and a joint-7 grid (tampanda/ik/analytic_ik.py); opt-in.
+            from tampanda.ik.analytic_ik import AnalyticIK
+            self.ik = AnalyticIK(self.model, self.data, env=self)
+        elif os.environ.get("TAMPANDA_IK", "mink") != "mink":
+            raise ValueError("TAMPANDA_IK must be mink or analytic, got %r" % os.environ["TAMPANDA_IK"])
         self.controller = PositionController(self.model, self.data)
         
         # List of body names to check for collisions
