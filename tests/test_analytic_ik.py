@@ -76,6 +76,25 @@ def test_the_generating_configuration_is_recovered_near_the_singularity(ik):
         assert np.abs(ik.solutions(p, quat) - q).max(1).min() < 1e-3
 
 
+def test_failed_solve_reports_its_residual_like_mink(ik):
+    """Planners read ik.ee_task.compute_error(ik.configuration) after a failure to tell position from
+    orientation failures; out of reach must read as a position failure, a solved target as ~0."""
+    q0 = np.r_[A.Q_HOME, np.zeros(ik.model.nq - 7)]
+    ik.update_configuration(q0)
+    ik.set_target_position(ik.base[:3, 3] + [1.2, 0.0, 0.3], [0.0, 1.0, 0.0, 0.0])
+    assert ik.converge_ik() is False
+    e = ik.ee_task.compute_error(ik.configuration)
+    assert np.linalg.norm(e[:3]) > 0.2 and (ik.configuration.q[:7] >= ik.q_lo).all() and (ik.configuration.q[:7] <= ik.q_hi).all()
+    q = ik.q_lo + 0.5 * (ik.q_hi - ik.q_lo)
+    p, R = ik._fk(q)
+    quat = np.zeros(4)
+    mujoco.mju_mat2Quat(quat, R.flatten())
+    ik.update_configuration(q0)
+    ik.set_target_position(p, quat)
+    assert ik.converge_ik() is True
+    assert np.linalg.norm(ik.ee_task.compute_error(ik.configuration)) < 1e-3
+
+
 def test_overextended_elbow_targets_still_have_a_solution(ik):
     """The closed form never returns q4 above about -0.47 rad, but such targets are reached by its own family."""
     rng = np.random.default_rng(6)

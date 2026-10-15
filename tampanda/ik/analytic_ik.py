@@ -20,6 +20,14 @@ joints 1, 2, 3, 5 (q4, q6, q7 are exact; MuJoCo's site Jacobian), and the refine
 its shoulder mirror (q1 + pi, -q2, q3 + pi) are kept if they are within the joint ranges and pass the
 same check. Candidates that still fail are dropped (counted in `n_dropped`).
 
+After a failed solve. MinkIK leaves its last iterate in `configuration` and the planners read the
+residual through `ik.ee_task.compute_error(configuration)` (rrt_star._get_ik_error_details): which
+threshold failed, position or orientation, decides retries downstream (e.g. a lower place approach
+when the position is out of reach). This solver does the same: when no checked candidate exists,
+`configuration` is set to a best-effort configuration (damped least squares on all seven joints from
+the seed, within the joint ranges) and `ee_task.compute_error` reports [position error, rotation
+vector] of any configuration against the current target.
+
 Not covered: the closed form yields one elbow family only, q4 below about -0.47 rad; the Panda's
 q4 range reaches -0.07 rad (elbow over-extended). Targets there have a solution in the covered family
 with the same shoulder-wrist distance, so reach is not lost, but those postures are never returned.
@@ -51,6 +59,7 @@ POS_TOL, ORI_TOL = 1e-4, 1e-3        # forward-kinematics check of every candida
 REFINE_ITERS, REFINE_DAMPING = 50, 1e-10
 REFINE_JOINTS = (0, 1, 2, 4)          # joints 1, 2, 3, 5 (0-based): the ones the singular output gets wrong
 SINGULAR_Q1 = (-2.8, -1.4, 1.4, 2.8)  # extra q_actual[0] values for the singular output (see _raw)
+BEST_EFFORT_ITERS, BEST_EFFORT_DAMPING = 200, 1e-3   # after a failed solve (see _best_effort)
 
 
 def _frantik():
@@ -77,6 +86,18 @@ def _wrap(a):
 class _Config:
     def __init__(self, q):
         self.q = np.array(q, float)
+
+
+class _EETask:
+    """The part of MinkIK's end-effector task the planners read: `compute_error(configuration)`, the
+    6-vector [site position error (m), rotation-vector error (rad)] against the current target."""
+
+    def __init__(self, ik):
+        self._ik = ik
+
+    def compute_error(self, configuration):
+        ik = self._ik
+        return ik._residual(np.asarray(configuration.q, float)[:7], ik._pos, _quat_to_R(ik._quat))
 
 
 class AnalyticIK:
@@ -109,6 +130,7 @@ class AnalyticIK:
         self.calls = self.solutions_found = 0
         self.n_candidates = self.n_repaired = self.n_dropped = 0
         self._log = os.environ.get("TAMPANDA_IK_LOG") or None
+        self.ee_task = _EETask(self)
 
     def update_configuration(self, qpos):
         self.configuration = _Config(qpos)
@@ -133,25 +155,39 @@ class AnalyticIK:
         ang = np.arccos(np.clip((np.trace(R.T @ Rs) - 1.0) / 2.0, -1.0, 1.0))
         return float(np.linalg.norm(p - pos)), float(ang)
 
-    def _refine(self, s, pos, R):
-        """Gauss-Newton (lightly damped) on joints 1, 2, 3 and 5 towards the target. q4, q6 and q7 are
-        exact in the closed form's singular output (they depend on the wrist geometry only), so they stay."""
+    def _residual(self, s, pos, R):
+        """[target - site position, rotation vector taking the site orientation to the target]."""
+        p, Rs = self._fk(s)
+        qe = np.zeros(4)
+        mujoco.mju_mat2Quat(qe, (R @ Rs.T).flatten())
+        w = np.zeros(3)
+        mujoco.mju_quat2Vel(w, qe, 1.0)
+        return np.r_[pos - p, w]
+
+    def _gauss_newton(self, s, pos, R, joints, iters, damping, clip=False):
         m, d, q = self.model, self._scratch, np.array(s, float)
-        free = list(REFINE_JOINTS)
-        for _ in range(REFINE_ITERS):
-            p, Rs = self._fk(q)
-            ep = pos - p
-            qe = np.zeros(4)
-            mujoco.mju_mat2Quat(qe, (R @ Rs.T).flatten())
-            w = np.zeros(3)
-            mujoco.mju_quat2Vel(w, qe, 1.0)
-            if np.linalg.norm(ep) < 1e-10 and np.linalg.norm(w) < 1e-10:
+        free = list(joints)
+        for _ in range(iters):
+            e = self._residual(q, pos, R)            # leaves the scratch data at q
+            if np.linalg.norm(e[:3]) < 1e-10 and np.linalg.norm(e[3:]) < 1e-10:
                 break
             mujoco.mj_comPos(m, d)
             mujoco.mj_jacSite(m, d, self._jp, self._jr, self.site)
             J = np.r_[self._jp[:, free], self._jr[:, free]]
-            q[free] += np.linalg.solve(J.T @ J + REFINE_DAMPING * np.eye(len(free)), J.T @ np.r_[ep, w])
+            q[free] += np.linalg.solve(J.T @ J + damping * np.eye(len(free)), J.T @ e)
+            if clip:
+                q[:7] = np.clip(q[:7], self.q_lo, self.q_hi)
         return q
+
+    def _refine(self, s, pos, R):
+        """Gauss-Newton (lightly damped) on joints 1, 2, 3 and 5 towards the target. q4, q6 and q7 are
+        exact in the closed form's singular output (they depend on the wrist geometry only), so they stay."""
+        return self._gauss_newton(s, pos, R, REFINE_JOINTS, REFINE_ITERS, REFINE_DAMPING)
+
+    def _best_effort(self, seed, pos, R):
+        """Where a failed solve leaves `configuration` (as MinkIK leaves its last iterate): damped least
+        squares on all seven joints from the seed, kept within the joint ranges."""
+        return self._gauss_newton(seed, pos, R, range(7), BEST_EFFORT_ITERS, BEST_EFFORT_DAMPING, clip=True)
 
     def _in_range(self, s):
         return bool((s >= self.q_lo).all() and (s <= self.q_hi).all())
@@ -246,6 +282,10 @@ class AnalyticIK:
         if i is not None and not self._reaches(sols[i]):
             raise RuntimeError("analytic IK: the returned solution does not reach the target "
                                "(frame convention broken)")
+        if i is None:
+            q = self.configuration.q.copy()
+            q[:7] = self._best_effort(seed, pos, R)
+            self.configuration = _Config(q)
         if self._log:
             self._write_log(raw, sols, meta, i, seed, pos, R, free, rep0, drop0, time.perf_counter() - t0)
         if i is None:
@@ -276,6 +316,10 @@ class AnalyticIK:
                                      "pos_err": ep, "ang_err": ea, "passes": ep <= POS_TOL and ea <= ORI_TOL}
             rec["any_unchecked_passes"] = any(
                 (lambda e: e[0] <= POS_TOL and e[1] <= ORI_TOL)(self._error(x, pos, R)) for x, _, _ in inr)
+        if i is None:
+            e = self._residual(self.configuration.q[:7], pos, R)
+            rec["best_effort"] = {"q": self.configuration.q[:7].tolist(), "pos_err": float(np.linalg.norm(e[:3])),
+                                  "ang_err": float(np.linalg.norm(e[3:]))}
         if i is not None:
             ep, ea = self._error(sols[i], pos, R)
             k, b, kind = meta[i]
