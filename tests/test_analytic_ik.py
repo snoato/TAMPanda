@@ -106,3 +106,22 @@ def test_overextended_elbow_targets_still_have_a_solution(ik):
         mujoco.mju_mat2Quat(quat, R.flatten())
         sols = ik.solutions(p, quat)
         assert len(sols) and (sols[:, 3] < -0.4).all()
+
+
+@pytest.mark.parametrize("value, cls", [(None, "AnalyticIK"), ("analytic", "AnalyticIK"), ("mink", "MinkIK")])
+def test_franka_environment_ik_selection(monkeypatch, value, cls):
+    """The analytic IK is the default; TAMPANDA_IK=mink selects MinkIK; anything else is refused."""
+    from tampanda.environments.franka_env import FrankaEnvironment
+    if value is None:
+        monkeypatch.delenv("TAMPANDA_IK", raising=False)
+    else:
+        monkeypatch.setenv("TAMPANDA_IK", value)
+    env = FrankaEnvironment(str(XML))
+    assert type(env.ik).__name__ == cls and env.ik_name == (value or "analytic")
+
+
+def test_franka_environment_refuses_an_unknown_ik(monkeypatch):
+    from tampanda.environments.franka_env import FrankaEnvironment
+    monkeypatch.setenv("TAMPANDA_IK", "numeric")
+    with pytest.raises(ValueError):
+        FrankaEnvironment(str(XML))

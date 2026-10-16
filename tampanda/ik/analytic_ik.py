@@ -32,7 +32,7 @@ Not covered: the closed form yields one elbow family only, q4 below about -0.47 
 q4 range reaches -0.07 rad (elbow over-extended). Targets there have a solution in the covered family
 with the same shoulder-wrist distance, so reach is not lost, but those postures are never returned.
 
-Selected by `FrankaEnv` when the environment variable TAMPANDA_IK=analytic; `frantik` is imported
+The IK `FrankaEnv` uses by default (TAMPANDA_IK=mink selects MinkIK); `frantik` is imported
 from sys.path or from the directories in TAMPANDA_FRANTIK_PYLIB (os.pathsep-separated, appended).
 TAMPANDA_IK_LOG=<path> appends one JSON line per `converge_ik` call to <path>.<pid> (target, seed,
 the pick, its forward-kinematics error, the counts above, the pick the solver made before candidates

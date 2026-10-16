@@ -56,12 +56,15 @@ class FrankaEnvironment(RobotArmEnvironment):
         self.model = mujoco.MjModel.from_xml_path(path)
         self.data = mujoco.MjData(self.model)
         self.ik = MinkIK(self.model, self.data)
-        if os.environ.get("TAMPANDA_IK", "mink") == "analytic":
-            # Closed-form IK over all branches and a joint-7 grid (tampanda/ik/analytic_ik.py); opt-in.
+        # The IK the planners use. Default: closed-form IK over all branches and a joint-7 grid
+        # (tampanda/ik/analytic_ik.py; needs `frantik`, see TAMPANDA_FRANTIK_PYLIB there).
+        # TAMPANDA_IK=mink selects the damped-least-squares MinkIK instead.
+        self.ik_name = os.environ.get("TAMPANDA_IK", "analytic")
+        if self.ik_name == "analytic":
             from tampanda.ik.analytic_ik import AnalyticIK
             self.ik = AnalyticIK(self.model, self.data, env=self)
-        elif os.environ.get("TAMPANDA_IK", "mink") != "mink":
-            raise ValueError("TAMPANDA_IK must be mink or analytic, got %r" % os.environ["TAMPANDA_IK"])
+        elif self.ik_name != "mink":
+            raise ValueError("TAMPANDA_IK must be mink or analytic, got %r" % self.ik_name)
         self.controller = PositionController(self.model, self.data)
         
         # List of body names to check for collisions
